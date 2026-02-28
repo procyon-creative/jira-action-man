@@ -1,49 +1,49 @@
-name: 'Jira Action Man'
-description: 'Extract Jira issue keys from GitHub events (branches, PR titles, commits, PR body)'
-author: 'nick'
+name: "Jira Action Man"
+description: "Extract Jira issue keys from GitHub events (branches, PR titles, commits, PR body)"
+author: "nick"
 
 inputs:
   projects:
     description: 'Comma-separated Jira project prefixes to match (e.g. "PROJ,TEAM"). Empty = match all.'
     required: false
-    default: ''
+    default: ""
   from:
-    description: 'Comma-separated sources to check: branch, title, commits, body'
+    description: "Comma-separated sources to check: branch, title, commits, body"
     required: false
-    default: 'branch,title,commits'
+    default: "branch,title,commits"
   fail-on-missing:
-    description: 'Fail the action if no Jira keys are found'
+    description: "Fail the action if no Jira keys are found"
     required: false
-    default: 'false'
+    default: "false"
   blocklist:
     description: 'Comma-separated prefixes to ignore (e.g. "SHA,UTF"). Overrides the default blocklist. Set to "none" to disable.'
     required: false
-    default: ''
+    default: ""
   issue-pattern:
-    description: 'Custom regex pattern for matching issue keys. Overrides the default pattern.'
+    description: "Custom regex pattern for matching issue keys. Overrides the default pattern."
     required: false
-    default: ''
+    default: ""
   jira-base-url:
-    description: 'Jira base URL (reserved for future use)'
+    description: "Jira base URL (reserved for future use)"
     required: false
-    default: ''
+    default: ""
   jira-email:
-    description: 'Jira email (reserved for future use)'
+    description: "Jira email (reserved for future use)"
     required: false
-    default: ''
+    default: ""
   jira-api-token:
-    description: 'Jira API token (reserved for future use)'
+    description: "Jira API token (reserved for future use)"
     required: false
-    default: ''
+    default: ""
 
 outputs:
   keys:
-    description: 'JSON array of unique sorted Jira issue keys'
+    description: "JSON array of unique sorted Jira issue keys"
   key:
-    description: 'First Jira issue key found (convenience)'
+    description: "First Jira issue key found (convenience)"
   found:
     description: '"true" if any keys were found, "false" otherwise'
 
 runs:
-  using: 'node20'
-  main: 'dist/index.js'
+  using: "node20"
+  main: "dist/index.js"
