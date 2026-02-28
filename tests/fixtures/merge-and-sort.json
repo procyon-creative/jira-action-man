@@ -1,0 +1,23 @@
+[
+  {
+    "label": "deduplicates",
+    "input": ["PROJ-1", "PROJ-1", "PROJ-2"],
+    "expected": ["PROJ-1", "PROJ-2"]
+  },
+  {
+    "label": "alpha by prefix",
+    "input": ["TEAM-1", "PROJ-1"],
+    "expected": ["PROJ-1", "TEAM-1"]
+  },
+  {
+    "label": "numeric by number",
+    "input": ["PROJ-10", "PROJ-2", "PROJ-1"],
+    "expected": ["PROJ-1", "PROJ-2", "PROJ-10"]
+  },
+  {
+    "label": "mixed",
+    "input": ["TEAM-3", "PROJ-10", "PROJ-2", "TEAM-1"],
+    "expected": ["PROJ-2", "PROJ-10", "TEAM-1", "TEAM-3"]
+  },
+  { "label": "empty", "input": [], "expected": [] }
+]

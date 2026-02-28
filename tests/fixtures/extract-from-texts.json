@@ -1,0 +1,12 @@
+[
+  {
+    "label": "merges from multiple",
+    "texts": ["feature/PROJ-123-login", "fix PROJ-456 and TEAM-1"],
+    "expected": ["PROJ-123", "PROJ-456", "TEAM-1"]
+  },
+  {
+    "label": "deduplicates across",
+    "texts": ["PROJ-1 fix", "also PROJ-1"],
+    "expected": ["PROJ-1"]
+  }
+]

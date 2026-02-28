@@ -1,0 +1,23 @@
+[
+  {
+    "label": "filters default blocklist",
+    "text": "SHA-256 UTF-8 PROJ-42",
+    "projects": [],
+    "blocklist": "default",
+    "expected": ["PROJ-42"]
+  },
+  {
+    "label": "custom overrides default",
+    "text": "SHA-256 NOPE-1 PROJ-42",
+    "projects": [],
+    "blocklist": ["NOPE"],
+    "expected": ["SHA-256", "PROJ-42"]
+  },
+  {
+    "label": "blocklist + projects filter",
+    "text": "SHA-256 PROJ-42",
+    "projects": ["PROJ", "SHA"],
+    "blocklist": "default",
+    "expected": ["PROJ-42"]
+  }
+]

@@ -1,0 +1,99 @@
+[
+  {
+    "label": "single key",
+    "text": "fix PROJ-123 typo",
+    "projects": [],
+    "expected": ["PROJ-123"]
+  },
+  {
+    "label": "multiple keys",
+    "text": "PROJ-1 and TEAM-42 done",
+    "projects": [],
+    "expected": ["PROJ-1", "TEAM-42"]
+  },
+  {
+    "label": "branch with slashes",
+    "text": "feature/PROJ-123-add-login",
+    "projects": [],
+    "expected": ["PROJ-123"]
+  },
+  {
+    "label": "XPROJ-123 is valid",
+    "text": "XPROJ-123",
+    "projects": [],
+    "expected": ["XPROJ-123"]
+  },
+  {
+    "label": "preceded by digit",
+    "text": "9PROJ-123",
+    "projects": [],
+    "expected": []
+  },
+  {
+    "label": "followed by uppercase",
+    "text": "PROJ-123ABC",
+    "projects": [],
+    "expected": []
+  },
+  {
+    "label": "followed by dash",
+    "text": "PROJ-123-some-feature",
+    "projects": [],
+    "expected": ["PROJ-123"]
+  },
+  { "label": "empty string", "text": "", "projects": [], "expected": [] },
+  {
+    "label": "no matches",
+    "text": "nothing here",
+    "projects": [],
+    "expected": []
+  },
+  {
+    "label": "multi-digit number",
+    "text": "PROJ-123456",
+    "projects": [],
+    "expected": ["PROJ-123456"]
+  },
+  {
+    "label": "7-digit rejected",
+    "text": "PROJ-1234567",
+    "projects": [],
+    "expected": []
+  },
+  {
+    "label": "single-char prefix",
+    "text": "A-123",
+    "projects": [],
+    "expected": []
+  },
+  {
+    "label": "alphanumeric prefix",
+    "text": "AB2-123",
+    "projects": [],
+    "expected": ["AB2-123"]
+  },
+  {
+    "label": "start and end of string",
+    "text": "PROJ-1",
+    "projects": [],
+    "expected": ["PROJ-1"]
+  },
+  {
+    "label": "filter by project",
+    "text": "PROJ-1 TEAM-2 OTHER-3",
+    "projects": ["PROJ", "TEAM"],
+    "expected": ["PROJ-1", "TEAM-2"]
+  },
+  {
+    "label": "all keys when no filter",
+    "text": "PROJ-1 TEAM-2",
+    "projects": [],
+    "expected": ["PROJ-1", "TEAM-2"]
+  },
+  {
+    "label": "weird keys",
+    "text": "ADUO327D10-123 L10DD-321 ",
+    "projects": [],
+    "expected": ["ADUO327D10-123", "L10DD-321"]
+  }
+]
