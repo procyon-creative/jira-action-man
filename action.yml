@@ -44,7 +44,7 @@ inputs:
     required: false
     default: "false"
   github_token:
-    description: "GitHub token for updating PR body with Jira links. Usually secrets.GITHUB_TOKEN."
+    description: "GitHub token for modifying PRs. Usually secrets.GITHUB_TOKEN."
     required: false
     default: ""
 

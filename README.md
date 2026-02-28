@@ -5,7 +5,6 @@ A GitHub Action that extracts Jira issue keys from GitHub events. A modern, main
 - Node 20
 - Extracts from branch names, PR titles, commit messages, and PR body
 - Posts PR descriptions as comments on linked Jira tickets (with update-on-rerun dedup)
-- Appends Jira ticket links to PR descriptions automatically
 - Configurable project filters, blocklist, and regex pattern
 
 ## Quick Start
@@ -33,7 +32,7 @@ A GitHub Action that extracts Jira issue keys from GitHub events. A modern, main
 | `jira_email` | `""` | Jira account email for API authentication |
 | `jira_api_token` | `""` | Jira API token for authentication |
 | `jira_fail_on_error` | `false` | Fail the action if posting to Jira fails (default: warn only) |
-| `github_token` | `""` | GitHub token for updating PR body with Jira links |
+| `github_token` | `""` | GitHub token for modifying PRs |
 
 ## Outputs
 
@@ -94,34 +93,6 @@ When `post_to_jira` is enabled on `pull_request` events, the action posts the PR
     jira_base_url: ${{ secrets.JIRA_BASE_URL }}
     jira_email: ${{ secrets.JIRA_EMAIL }}
     jira_api_token: ${{ secrets.JIRA_API_TOKEN }}
-```
-
-### Auto-link Jira Tickets in PR Body
-
-When `jira_base_url` and `github_token` are provided, the action appends a **Jira** section with links to the bottom of the PR description. On re-runs, it updates the existing section.
-
-```yaml
-- uses: procyon-creative/jira-action-man@main
-  id: jira
-  with:
-    projects: "PROJ"
-    jira_base_url: ${{ secrets.JIRA_BASE_URL }}
-    github_token: ${{ secrets.GITHUB_TOKEN }}
-```
-
-### Full Setup (Extract + Link + Post)
-
-```yaml
-- uses: procyon-creative/jira-action-man@main
-  id: jira
-  with:
-    projects: "PROJ,TEAM"
-    from: "branch,title,body"
-    post_to_jira: true
-    jira_base_url: ${{ secrets.JIRA_BASE_URL }}
-    jira_email: ${{ secrets.JIRA_EMAIL }}
-    jira_api_token: ${{ secrets.JIRA_API_TOKEN }}
-    github_token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 ## Blocklist

@@ -5,9 +5,6 @@ on:
   push:
     branches: [main]
 
-permissions:
-  pull-requests: write
-
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -37,7 +34,6 @@ jobs:
           jira_base_url: ${{ secrets.JIRA_BASE_URL }}
           jira_email: ${{ secrets.JIRA_EMAIL }}
           jira_api_token: ${{ secrets.JIRA_API_TOKEN }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - run: |
           echo "Found: ${{ steps.jira.outputs.found }}"

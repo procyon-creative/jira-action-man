@@ -30246,7 +30246,6 @@ const github = __importStar(__nccwpck_require__(3228));
 const extract_1 = __nccwpck_require__(6542);
 const sources_1 = __nccwpck_require__(8578);
 const jira_1 = __nccwpck_require__(7647);
-const pr_links_1 = __nccwpck_require__(2173);
 function parseInputs() {
     const projectsRaw = core.getInput("projects");
     const projects = projectsRaw
@@ -30350,25 +30349,6 @@ async function run() {
             }
             else if (!isPr) {
                 core.info("post_to_jira is enabled but event is not a pull_request — skipping");
-            }
-        }
-        // Append Jira links to PR body
-        if (keys.length > 0) {
-            const { context } = github;
-            const isPrEvent = context.eventName === "pull_request" ||
-                context.eventName === "pull_request_target";
-            if (isPrEvent && context.payload.pull_request) {
-                const jiraBaseUrl = core.getInput("jira_base_url");
-                const githubToken = core.getInput("github_token");
-                if (jiraBaseUrl && githubToken) {
-                    await (0, pr_links_1.appendJiraLinksToPr)(keys, jiraBaseUrl, githubToken);
-                }
-                else if (!jiraBaseUrl) {
-                    core.debug("Skipping PR Jira links — jira_base_url not set");
-                }
-                else {
-                    core.debug("Skipping PR Jira links — github_token not set");
-                }
             }
         }
     }
@@ -30507,95 +30487,6 @@ async function postToJira(keys, pr, config, failOnError) {
             core.warning(msg);
         }
     }
-}
-
-
-/***/ }),
-
-/***/ 2173:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.appendJiraLinksToPr = appendJiraLinksToPr;
-const core = __importStar(__nccwpck_require__(7484));
-const github = __importStar(__nccwpck_require__(3228));
-const SECTION_START = "<!-- jira-action-man:start -->";
-const SECTION_END = "<!-- jira-action-man:end -->";
-function buildJiraSection(keys, baseUrl) {
-    const url = baseUrl.replace(/\/+$/, "");
-    const links = keys
-        .map((key) => `- [${key}](${url}/browse/${key})`)
-        .join("\n");
-    return `${SECTION_START}\n## Jira\n\n${links}\n${SECTION_END}`;
-}
-async function appendJiraLinksToPr(keys, baseUrl, token) {
-    const { context } = github;
-    const pr = context.payload.pull_request;
-    if (!pr)
-        return;
-    const currentBody = pr.body || "";
-    const section = buildJiraSection(keys, baseUrl);
-    let newBody;
-    const startIdx = currentBody.indexOf(SECTION_START);
-    const endIdx = currentBody.indexOf(SECTION_END);
-    if (startIdx !== -1 && endIdx !== -1) {
-        // Replace existing section
-        newBody =
-            currentBody.substring(0, startIdx) +
-                section +
-                currentBody.substring(endIdx + SECTION_END.length);
-    }
-    else {
-        // Append to bottom
-        newBody = currentBody.trimEnd() + "\n\n" + section;
-    }
-    if (newBody === currentBody) {
-        core.info("PR body already has correct Jira links — skipping update");
-        return;
-    }
-    const octokit = github.getOctokit(token);
-    await octokit.rest.pulls.update({
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        pull_number: pr.number,
-        body: newBody,
-    });
-    core.info(`Appended Jira links to PR #${pr.number}`);
 }
 
 

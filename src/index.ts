@@ -8,7 +8,6 @@ import {
 } from "./extract";
 import { collectSourceTexts, sourceTextsToArray } from "./sources";
 import { postToJira } from "./jira";
-import { appendJiraLinksToPr } from "./pr-links";
 
 function parseInputs(): ActionInputs {
   const projectsRaw = core.getInput("projects");
@@ -132,26 +131,6 @@ async function run(): Promise<void> {
         core.info(
           "post_to_jira is enabled but event is not a pull_request — skipping",
         );
-      }
-    }
-    // Append Jira links to PR body
-    if (keys.length > 0) {
-      const { context } = github;
-      const isPrEvent =
-        context.eventName === "pull_request" ||
-        context.eventName === "pull_request_target";
-
-      if (isPrEvent && context.payload.pull_request) {
-        const jiraBaseUrl = core.getInput("jira_base_url");
-        const githubToken = core.getInput("github_token");
-
-        if (jiraBaseUrl && githubToken) {
-          await appendJiraLinksToPr(keys, jiraBaseUrl, githubToken);
-        } else if (!jiraBaseUrl) {
-          core.debug("Skipping PR Jira links — jira_base_url not set");
-        } else {
-          core.debug("Skipping PR Jira links — github_token not set");
-        }
       }
     }
   } catch (error) {
