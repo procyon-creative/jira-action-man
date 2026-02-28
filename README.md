@@ -4,8 +4,9 @@ A GitHub Action that extracts Jira issue keys from GitHub events. A modern, main
 
 - Node 20
 - Extracts from branch names, PR titles, commit messages, and PR body
+- Posts PR descriptions as comments on linked Jira tickets (with update-on-rerun dedup)
+- Appends Jira ticket links to PR descriptions automatically
 - Configurable project filters, blocklist, and regex pattern
-- Zero dependencies beyond `@actions/core` and `@actions/github`
 
 ## Quick Start
 
@@ -24,9 +25,15 @@ A GitHub Action that extracts Jira issue keys from GitHub events. A modern, main
 |-------|---------|-------------|
 | `projects` | `""` (match all) | Comma-separated Jira project prefixes to match (e.g. `PROJ,TEAM`) |
 | `from` | `branch,title,commits` | Comma-separated sources to check: `branch`, `title`, `commits`, `body` |
-| `fail-on-missing` | `false` | Fail the action if no Jira keys are found |
+| `fail_on_missing` | `false` | Fail the action if no Jira keys are found |
 | `blocklist` | *(see below)* | Comma-separated prefixes to ignore. Set to `none` to disable |
-| `issue-pattern` | *(see below)* | Custom regex pattern for matching issue keys |
+| `issue_pattern` | *(see below)* | Custom regex pattern for matching issue keys |
+| `post_to_jira` | `false` | Post PR description as a comment on linked Jira tickets |
+| `jira_base_url` | `""` | Jira instance base URL (e.g. `https://yourorg.atlassian.net`) |
+| `jira_email` | `""` | Jira account email for API authentication |
+| `jira_api_token` | `""` | Jira API token for authentication |
+| `jira_fail_on_error` | `false` | Fail the action if posting to Jira fails (default: warn only) |
+| `github_token` | `""` | GitHub token for updating PR body with Jira links |
 
 ## Outputs
 
@@ -57,7 +64,7 @@ Keys are sorted alphabetically by project prefix, then numerically by issue numb
   with:
     projects: "PROJ"
     from: "branch,title,body"
-    fail-on-missing: true
+    fail_on_missing: true
 ```
 
 ### Use Extracted Keys in Later Steps
@@ -72,6 +79,49 @@ Keys are sorted alphabetically by project prefix, then numerically by issue numb
   run: |
     echo "First key: ${{ steps.jira.outputs.key }}"
     echo "All keys: ${{ steps.jira.outputs.keys }}"
+```
+
+### Post PR Description to Jira
+
+When `post_to_jira` is enabled on `pull_request` events, the action posts the PR description as a comment on each linked Jira ticket. If the PR is updated, the existing comment is updated instead of creating a duplicate (matched by PR URL).
+
+```yaml
+- uses: procyon-creative/jira-action-man@main
+  id: jira
+  with:
+    projects: "PROJ"
+    post_to_jira: true
+    jira_base_url: ${{ secrets.JIRA_BASE_URL }}
+    jira_email: ${{ secrets.JIRA_EMAIL }}
+    jira_api_token: ${{ secrets.JIRA_API_TOKEN }}
+```
+
+### Auto-link Jira Tickets in PR Body
+
+When `jira_base_url` and `github_token` are provided, the action appends a **Jira** section with links to the bottom of the PR description. On re-runs, it updates the existing section.
+
+```yaml
+- uses: procyon-creative/jira-action-man@main
+  id: jira
+  with:
+    projects: "PROJ"
+    jira_base_url: ${{ secrets.JIRA_BASE_URL }}
+    github_token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+### Full Setup (Extract + Link + Post)
+
+```yaml
+- uses: procyon-creative/jira-action-man@main
+  id: jira
+  with:
+    projects: "PROJ,TEAM"
+    from: "branch,title,body"
+    post_to_jira: true
+    jira_base_url: ${{ secrets.JIRA_BASE_URL }}
+    jira_email: ${{ secrets.JIRA_EMAIL }}
+    jira_api_token: ${{ secrets.JIRA_API_TOKEN }}
+    github_token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 ## Blocklist
@@ -112,7 +162,7 @@ Override with a custom pattern:
 
 ```yaml
 with:
-  issue-pattern: "MYPROJ-[0-9]+"
+  issue_pattern: "MYPROJ-[0-9]+"
 ```
 
 ## Development

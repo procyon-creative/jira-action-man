@@ -11,7 +11,7 @@ inputs:
     description: "Comma-separated sources to check: branch, title, commits, body"
     required: false
     default: "branch,title,commits"
-  fail-on-missing:
+  fail_on_missing:
     description: "Fail the action if no Jira keys are found"
     required: false
     default: "false"
@@ -19,20 +19,32 @@ inputs:
     description: 'Comma-separated prefixes to ignore (e.g. "SHA,UTF"). Overrides the default blocklist. Set to "none" to disable.'
     required: false
     default: ""
-  issue-pattern:
+  issue_pattern:
     description: "Custom regex pattern for matching issue keys. Overrides the default pattern."
     required: false
     default: ""
-  jira-base-url:
-    description: "Jira base URL (reserved for future use)"
+  post_to_jira:
+    description: "Post PR description as a comment on linked Jira tickets"
+    required: false
+    default: "false"
+  jira_base_url:
+    description: "Jira instance base URL (e.g. https://yourorg.atlassian.net)"
     required: false
     default: ""
-  jira-email:
-    description: "Jira email (reserved for future use)"
+  jira_email:
+    description: "Jira account email for API authentication"
     required: false
     default: ""
-  jira-api-token:
-    description: "Jira API token (reserved for future use)"
+  jira_api_token:
+    description: "Jira API token for authentication"
+    required: false
+    default: ""
+  jira_fail_on_error:
+    description: "Fail the action if posting to Jira fails (default: warn only)"
+    required: false
+    default: "false"
+  github_token:
+    description: "GitHub token for updating PR body with Jira links. Usually secrets.GITHUB_TOKEN."
     required: false
     default: ""
 
