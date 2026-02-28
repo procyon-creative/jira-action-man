@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run package
+
+  dogfood:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./
+        id: jira
+        with:
+          projects: "JAM"
+          from: "branch,title,body"
+          post_to_jira: true
+          jira_base_url: ${{ secrets.JIRA_BASE_URL }}
+          jira_email: ${{ secrets.JIRA_EMAIL }}
+          jira_api_token: ${{ secrets.JIRA_API_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: |
+          echo "Found: ${{ steps.jira.outputs.found }}"
+          echo "Keys: ${{ steps.jira.outputs.keys }}"
+          echo "Key: ${{ steps.jira.outputs.key }}"
