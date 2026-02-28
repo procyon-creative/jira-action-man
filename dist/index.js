@@ -30279,7 +30279,15 @@ function parseInputs() {
     const issuePattern = new RegExp(patternRaw || extract_1.DEFAULT_ISSUE_PATTERN, "g");
     const postToJira = core.getInput("post_to_jira") === "true";
     const jiraFailOnError = core.getInput("jira_fail_on_error") === "true";
-    return { projects, from, failOnMissing, blocklist, issuePattern, postToJira, jiraFailOnError };
+    return {
+        projects,
+        from,
+        failOnMissing,
+        blocklist,
+        issuePattern,
+        postToJira,
+        jiraFailOnError,
+    };
 }
 async function run() {
     try {
@@ -30420,15 +30428,12 @@ const core = __importStar(__nccwpck_require__(7484));
 const jira2md_1 = __importDefault(__nccwpck_require__(1851));
 function buildCommentBody(pr) {
     const wikiBody = jira2md_1.default.to_jira(pr.body);
-    const lines = [
-        `h3. [${pr.title}|${pr.url}]`,
-        "",
-        wikiBody,
-    ];
+    const lines = [`h3. [${pr.title}|${pr.url}]`, "", wikiBody];
     return lines.join("\n");
 }
 function authHeader(config) {
-    return ("Basic " + Buffer.from(`${config.email}:${config.apiToken}`).toString("base64"));
+    return ("Basic " +
+        Buffer.from(`${config.email}:${config.apiToken}`).toString("base64"));
 }
 async function findExistingComment(issueKey, prUrl, config) {
     const url = `${config.baseUrl}/rest/api/2/issue/${issueKey}/comment`;
@@ -30480,6 +30485,7 @@ async function updateComment(issueKey, commentId, body, config) {
     }
 }
 async function postToJira(keys, pr, config, failOnError) {
+    config = { ...config, baseUrl: config.baseUrl.replace(/\/+$/, "") };
     const commentBody = buildCommentBody(pr);
     for (const key of keys) {
         try {
@@ -30551,8 +30557,9 @@ const github = __importStar(__nccwpck_require__(3228));
 const SECTION_START = "<!-- jira-action-man:start -->";
 const SECTION_END = "<!-- jira-action-man:end -->";
 function buildJiraSection(keys, baseUrl) {
+    const url = baseUrl.replace(/\/+$/, "");
     const links = keys
-        .map((key) => `- [${key}](${baseUrl}/browse/${key})`)
+        .map((key) => `- [${key}](${url}/browse/${key})`)
         .join("\n");
     return `${SECTION_START}\n## Jira\n\n${links}\n${SECTION_END}`;
 }

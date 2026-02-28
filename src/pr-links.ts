@@ -5,8 +5,9 @@ const SECTION_START = "<!-- jira-action-man:start -->";
 const SECTION_END = "<!-- jira-action-man:end -->";
 
 function buildJiraSection(keys: string[], baseUrl: string): string {
+  const url = baseUrl.replace(/\/+$/, "");
   const links = keys
-    .map((key) => `- [${key}](${baseUrl}/browse/${key})`)
+    .map((key) => `- [${key}](${url}/browse/${key})`)
     .join("\n");
 
   return `${SECTION_START}\n## Jira\n\n${links}\n${SECTION_END}`;

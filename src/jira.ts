@@ -105,6 +105,7 @@ export async function postToJira(
   config: JiraConfig,
   failOnError: boolean,
 ): Promise<void> {
+  config = { ...config, baseUrl: config.baseUrl.replace(/\/+$/, "") };
   const commentBody = buildCommentBody(pr);
 
   for (const key of keys) {
