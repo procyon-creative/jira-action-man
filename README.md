@@ -5,6 +5,7 @@ A GitHub Action that extracts Jira issue keys from GitHub events and posts PR co
 - Node 20
 - Extracts from branch names, PR titles, commit messages, and PR body
 - Posts PR descriptions as comments on linked Jira tickets (with update-on-rerun dedup)
+- Uploads PR body images to Jira as attachments (with SSRF protection and size limits)
 - Configurable project filters, blocklist, and regex pattern
 
 ## Quick Start
@@ -97,12 +98,16 @@ When `post_to_jira` is enabled on `pull_request` events, the action posts the PR
   id: jira
   with:
     projects: "PROJ"
+    from: "branch,title,body"
     post_to_jira: true
     jira_comment_mode: update
     jira_base_url: ${{ secrets.JIRA_BASE_URL }}
     jira_email: ${{ secrets.JIRA_EMAIL }}
     jira_api_token: ${{ secrets.JIRA_API_TOKEN }}
+    github_token: ${{ secrets.GITHUB_TOKEN }}
 ```
+
+Images in the PR body are automatically downloaded and uploaded to Jira as attachments. The image references in the comment are updated to point to the uploaded files. Only HTTPS URLs are allowed, and private/loopback IPs are blocked. Use `allowed_image_hosts` to restrict downloads to specific domains.
 
 ## Blocklist
 
