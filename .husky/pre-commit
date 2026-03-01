@@ -1,1 +1,5 @@
+if git diff --cached --name-only | grep -qE '^(src/|guides/|typedoc\.json)'; then
+  npm run docs
+  git add docs/
+fi
 npx lint-staged
