@@ -30351,7 +30351,14 @@ async function run() {
                     };
                     const prAction = context.payload.action || "opened";
                     const githubToken = core.getInput("github_token") || undefined;
-                    await (0, jira_1.postToJira)(keys, pr, jiraConfig, inputs.jiraCommentMode, prAction, inputs.jiraFailOnError, githubToken);
+                    const allowedHostsRaw = core.getInput("allowed_image_hosts");
+                    const allowedHosts = allowedHostsRaw
+                        ? allowedHostsRaw
+                            .split(",")
+                            .map((h) => h.trim().toLowerCase())
+                            .filter(Boolean)
+                        : undefined;
+                    await (0, jira_1.postToJira)(keys, pr, jiraConfig, inputs.jiraCommentMode, prAction, inputs.jiraFailOnError, githubToken, allowedHosts);
                 }
             }
             else if (!isPr) {
@@ -30411,12 +30418,16 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.extractImageUrls = extractImageUrls;
+exports.replaceImageUrls = replaceImageUrls;
+exports.isSafeUrl = isSafeUrl;
+exports.deduplicateFilenames = deduplicateFilenames;
 exports.downloadImage = downloadImage;
 exports.uploadAttachment = uploadAttachment;
-exports.replaceImageUrls = replaceImageUrls;
 exports.postToJira = postToJira;
 const core = __importStar(__nccwpck_require__(7484));
 const jira2md_1 = __importDefault(__nccwpck_require__(1851));
+const marked_1 = __nccwpck_require__(9257);
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
 const CONTENT_TYPE_TO_EXT = {
     "image/png": ".png",
     "image/jpeg": ".jpg",
@@ -30424,14 +30435,47 @@ const CONTENT_TYPE_TO_EXT = {
     "image/webp": ".webp",
     "image/svg+xml": ".svg",
 };
+// RFC 1918 / loopback / link-local patterns for SSRF protection
+const PRIVATE_IP_PATTERNS = [
+    /^127\./, // loopback
+    /^10\./, // 10.0.0.0/8
+    /^172\.(1[6-9]|2\d|3[01])\./, // 172.16.0.0/12
+    /^192\.168\./, // 192.168.0.0/16
+    /^169\.254\./, // link-local
+    /^0\./, // 0.0.0.0/8
+    /^::1$/, // IPv6 loopback
+    /^fe80:/i, // IPv6 link-local
+    /^f[cd]/i, // IPv6 unique local (fc00::/7)
+];
 function extractImageUrls(markdown) {
     const results = [];
-    const regex = /!\[([^\]]*)\]\(([^)]+)\)/g;
-    let match;
-    while ((match = regex.exec(markdown)) !== null) {
-        results.push({ alt: match[1], url: match[2] });
-    }
+    const tokens = marked_1.marked.lexer(markdown);
+    marked_1.marked.walkTokens(tokens, (token) => {
+        if (token.type === "image") {
+            results.push({ alt: token.text, url: token.href, raw: token.raw });
+        }
+    });
     return results;
+}
+function replaceImageUrls(markdown, urlToFilename) {
+    // Extract images to get their raw tokens, then replace in reverse order
+    // to preserve string positions
+    const images = extractImageUrls(markdown);
+    let result = markdown;
+    // Process in reverse so earlier replacements don't shift later positions
+    for (let i = images.length - 1; i >= 0; i--) {
+        const img = images[i];
+        const filename = urlToFilename.get(img.url);
+        if (filename) {
+            const replacement = `![${img.alt}](${filename})`;
+            const idx = result.lastIndexOf(img.raw);
+            if (idx !== -1) {
+                result =
+                    result.slice(0, idx) + replacement + result.slice(idx + img.raw.length);
+            }
+        }
+    }
+    return result;
 }
 function isGitHubUrl(url) {
     try {
@@ -30442,18 +30486,74 @@ function isGitHubUrl(url) {
         return false;
     }
 }
+function isSafeUrl(url, allowedHosts) {
+    let parsed;
+    try {
+        parsed = new URL(url);
+    }
+    catch {
+        return false;
+    }
+    // HTTPS only
+    if (parsed.protocol !== "https:") {
+        return false;
+    }
+    // If allowlist provided, only those hosts pass
+    if (allowedHosts && allowedHosts.length > 0) {
+        return allowedHosts.includes(parsed.hostname);
+    }
+    // Block private/loopback/link-local IPs
+    for (const pattern of PRIVATE_IP_PATTERNS) {
+        if (pattern.test(parsed.hostname)) {
+            return false;
+        }
+    }
+    return true;
+}
+function stripContentType(raw) {
+    return raw.split(";")[0].trim();
+}
 function filenameFromUrl(url, contentType) {
     const pathname = new URL(url).pathname;
     let basename = pathname.split("/").pop() || "image";
     const hasExt = /\.\w{2,5}$/.test(basename);
     if (!hasExt && contentType) {
-        const ext = CONTENT_TYPE_TO_EXT[contentType] || ".bin";
+        const ext = CONTENT_TYPE_TO_EXT[stripContentType(contentType)] || ".bin";
         basename += ext;
     }
     return basename;
 }
-async function downloadImage(url, githubToken) {
+function deduplicateFilenames(entries) {
+    // Count occurrences of each filename
+    const counts = new Map();
+    for (const e of entries) {
+        counts.set(e.filename, (counts.get(e.filename) || 0) + 1);
+    }
+    // For colliding names, append -1, -2, etc.
+    const counters = new Map();
+    const result = new Map();
+    for (const e of entries) {
+        if ((counts.get(e.filename) || 0) > 1) {
+            const n = (counters.get(e.filename) || 0) + 1;
+            counters.set(e.filename, n);
+            const dotIdx = e.filename.lastIndexOf(".");
+            const dedupedName = dotIdx !== -1
+                ? `${e.filename.slice(0, dotIdx)}-${n}${e.filename.slice(dotIdx)}`
+                : `${e.filename}-${n}`;
+            result.set(e.url, dedupedName);
+        }
+        else {
+            result.set(e.url, e.filename);
+        }
+    }
+    return result;
+}
+async function downloadImage(url, githubToken, allowedHosts) {
     try {
+        if (!isSafeUrl(url, allowedHosts)) {
+            core.warning(`Blocked image download from unsafe URL: ${url}`);
+            return null;
+        }
         const headers = {};
         if (githubToken && isGitHubUrl(url)) {
             headers["Authorization"] = `token ${githubToken}`;
@@ -30463,8 +30563,26 @@ async function downloadImage(url, githubToken) {
             core.warning(`Failed to download image ${url}: ${response.status}`);
             return null;
         }
-        const contentType = response.headers.get("content-type") || "application/octet-stream";
-        const buffer = Buffer.from(await response.arrayBuffer());
+        const rawContentType = response.headers.get("content-type") || "application/octet-stream";
+        const contentType = stripContentType(rawContentType);
+        // Validate content type is an image
+        if (!contentType.startsWith("image/")) {
+            core.warning(`Rejected non-image content-type "${contentType}" from ${url}`);
+            return null;
+        }
+        // Check content-length before reading body
+        const contentLength = response.headers.get("content-length");
+        if (contentLength && parseInt(contentLength, 10) > MAX_IMAGE_BYTES) {
+            core.warning(`Rejected image from ${url}: content-length ${contentLength} exceeds ${MAX_IMAGE_BYTES} bytes`);
+            return null;
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        // Safety net: check actual size after reading
+        if (arrayBuffer.byteLength > MAX_IMAGE_BYTES) {
+            core.warning(`Rejected image from ${url}: size ${arrayBuffer.byteLength} exceeds ${MAX_IMAGE_BYTES} bytes`);
+            return null;
+        }
+        const buffer = Buffer.from(arrayBuffer);
         const filename = filenameFromUrl(url, contentType);
         return { buffer, filename, contentType };
     }
@@ -30475,34 +30593,21 @@ async function downloadImage(url, githubToken) {
 }
 async function uploadAttachment(issueKey, filename, buffer, contentType, config) {
     const url = `${config.baseUrl}/rest/api/2/issue/${issueKey}/attachments`;
-    const boundary = `----formdata-${Date.now()}`;
-    const header = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${contentType}\r\n\r\n`;
-    const footer = `\r\n--${boundary}--\r\n`;
-    const body = Buffer.concat([
-        Buffer.from(header),
-        buffer,
-        Buffer.from(footer),
-    ]);
+    const form = new FormData();
+    form.append("file", new Blob([new Uint8Array(buffer)], { type: contentType }), filename);
     const response = await fetch(url, {
         method: "POST",
         headers: {
             Authorization: authHeader(config),
             "X-Atlassian-Token": "no-check",
-            "Content-Type": `multipart/form-data; boundary=${boundary}`,
         },
-        body,
+        body: form,
     });
     if (!response.ok) {
         core.warning(`Failed to upload attachment ${filename} to ${issueKey}: ${response.status}`);
         return false;
     }
     return true;
-}
-function replaceImageUrls(markdown, urlToFilename) {
-    return markdown.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (original, alt, url) => {
-        const filename = urlToFilename.get(url);
-        return filename ? `![${alt}](${filename})` : original;
-    });
 }
 function buildFullBody(pr) {
     const wikiBody = jira2md_1.default.to_jira(pr.body);
@@ -30564,7 +30669,7 @@ async function updateComment(issueKey, commentId, body, config) {
         throw new Error(`Failed to update comment ${commentId} on ${issueKey}: ${response.status} ${response.statusText}`);
     }
 }
-async function postToJira(keys, pr, config, mode, prAction, failOnError, githubToken) {
+async function postToJira(keys, pr, config, mode, prAction, failOnError, githubToken, allowedHosts) {
     config = { ...config, baseUrl: config.baseUrl.replace(/\/+$/, "") };
     // Extract and download images once (dedup by URL)
     const images = extractImageUrls(pr.body);
@@ -30576,9 +30681,21 @@ async function postToJira(keys, pr, config, mode, prAction, failOnError, githubT
             if (seenUrls.has(img.url))
                 continue;
             seenUrls.add(img.url);
-            const result = await downloadImage(img.url, githubToken);
+            const result = await downloadImage(img.url, githubToken, allowedHosts);
             if (result) {
                 downloaded.set(img.url, result);
+            }
+        }
+        // Deduplicate filenames across all downloaded images
+        if (downloaded.size > 1) {
+            const entries = Array.from(downloaded, ([url, d]) => ({
+                url,
+                filename: d.filename,
+            }));
+            const dedupedNames = deduplicateFilenames(entries);
+            for (const [url, newName] of dedupedNames) {
+                const existing = downloaded.get(url);
+                existing.filename = newName;
             }
         }
     }

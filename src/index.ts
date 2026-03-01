@@ -140,6 +140,13 @@ async function run(): Promise<void> {
 
           const prAction = (context.payload.action as string) || "opened";
           const githubToken = core.getInput("github_token") || undefined;
+          const allowedHostsRaw = core.getInput("allowed_image_hosts");
+          const allowedHosts = allowedHostsRaw
+            ? allowedHostsRaw
+                .split(",")
+                .map((h) => h.trim().toLowerCase())
+                .filter(Boolean)
+            : undefined;
           await postToJira(
             keys,
             pr,
@@ -148,6 +155,7 @@ async function run(): Promise<void> {
             prAction,
             inputs.jiraFailOnError,
             githubToken,
+            allowedHosts,
           );
         }
       } else if (!isPr) {

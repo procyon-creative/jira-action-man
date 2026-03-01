@@ -52,6 +52,11 @@ index.ts → parseInputs() → collectSourceTexts() → extractKeysFromTexts() �
 
 Husky runs lint-staged: ESLint + Prettier on `*.ts`, Prettier on `*.{json,yml,yaml}`.
 
+## Code Style Preferences
+
+- **Prefer libraries over hand-rolled regex.** Regex is hard to read and easy to get wrong. Use established parsing libraries (e.g. a markdown parser for extracting structure, `content-type` package for parsing headers) instead of writing custom regex. The Jira issue key pattern in `extract.ts` is an exception since it's domain-specific.
+- **Use platform APIs over manual construction.** For example, use `FormData` instead of manually building multipart boundaries.
+
 ## Build Output
 
 `dist/index.js` is the NCC-bundled file committed to the repo — this is what GitHub Actions consumers run. Rebuild with `npm run build` after any source changes.
