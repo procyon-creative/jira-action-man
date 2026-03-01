@@ -1,0 +1,13 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "src/types.ts",
+    "src/extract.ts",
+    "src/sources.ts",
+    "src/jira.ts"
+  ],
+  "plugin": ["typedoc-plugin-markdown"],
+  "out": "docs",
+  "projectDocuments": ["guides/*.md"],
+  "githubPages": false
+}
