@@ -23,11 +23,13 @@ A GitHub Action (Node 20) that extracts Jira issue keys from GitHub events — b
 
 ```
 index.ts → parseInputs() → collectSourceTexts() → extractKeysFromTexts() → setOutput()
+                                                                          → postToJira() (if post_to_jira enabled)
 ```
 
-- **`types.ts`** — `Source`, `ActionInputs`, `SourceTexts` interfaces
+- **`types.ts`** — `Source`, `ActionInputs`, `SourceTexts`, `JiraConfig`, `PrContext` interfaces
 - **`extract.ts`** — Pure functions: regex matching, project filtering, blocklist filtering, dedup+sort. Exports `DEFAULT_ISSUE_PATTERN` and `DEFAULT_BLOCKLIST` constants
 - **`sources.ts`** — Reads text from GitHub event context. Event-aware: push gets branch+commits, pull_request gets branch+title+body
+- **`jira.ts`** — Posts PR descriptions as comments on Jira tickets via REST API v2. Deduplicates by searching existing comments for the PR URL
 - **`index.ts`** — Entry point. Parses action inputs, wires modules together, sets outputs (`keys`, `key`, `found`)
 
 ## Key Design Details
