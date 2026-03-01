@@ -8,7 +8,7 @@
 
 > **replaceImageUrls**(`markdown`, `urlToFilename`): `string`
 
-Defined in: [jira.ts:46](https://github.com/procyon-creative/jira-action-man/blob/ec8e53e5639ff626b77256a9793c0a5912c45a97/src/jira.ts#L46)
+Defined in: [jira.ts:47](https://github.com/procyon-creative/jira-action-man/blob/dcbfefb2f51e975f89b4ebe2b7e8c0bb9beb9542/src/jira.ts#L47)
 
 ## Parameters
 

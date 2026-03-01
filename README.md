@@ -1,6 +1,6 @@
 # Jira Action Man
 
-A GitHub Action that extracts Jira issue keys from GitHub events and posts posts PR comments to Jira.
+A GitHub Action that extracts Jira issue keys from GitHub events and posts PR comments to Jira.
 
 - Node 20
 - Extracts from branch names, PR titles, commit messages, and PR body
@@ -33,7 +33,8 @@ A GitHub Action that extracts Jira issue keys from GitHub events and posts posts
 | `jira_api_token` | `""` | Jira API token for authentication |
 | `jira_comment_mode` | `update` | Comment behavior: `update`, `new`, or `minimal` (see below) |
 | `jira_fail_on_error` | `false` | Fail the action if posting to Jira fails (default: warn only) |
-| `github_token` | `""` | GitHub token for modifying PRs |
+| `github_token` | `""` | GitHub token for downloading GitHub-hosted images in PR bodies |
+| `allowed_image_hosts` | `""` | Comma-separated hostnames allowed for image downloads (empty = all non-private HTTPS hosts) |
 
 ## Outputs
 

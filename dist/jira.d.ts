@@ -9,10 +9,11 @@ export declare function replaceImageUrls(
   markdown: string,
   urlToFilename: Map<string, string>,
 ): string;
+export declare function isPrivateIp(ip: string): boolean;
 export declare function isSafeUrl(
   url: string,
   allowedHosts?: string[],
-): boolean;
+): Promise<boolean>;
 export declare function deduplicateFilenames(
   entries: {
     url: string;
