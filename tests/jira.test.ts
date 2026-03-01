@@ -1,4 +1,4 @@
-import { postToJira } from "../src/jira";
+import { postToJira, extractImageUrls, replaceImageUrls } from "../src/jira";
 import { JiraConfig, PrContext } from "../src/types";
 
 jest.mock("@actions/core", () => ({
@@ -272,5 +272,277 @@ describe("postToJira", () => {
       expect.stringContaining("Failed to post to PROJ-1"),
     );
     expect(core.info).toHaveBeenCalledWith("Created comment on PROJ-2");
+  });
+});
+
+describe("extractImageUrls", () => {
+  it("returns empty array when no images", () => {
+    expect(extractImageUrls("Just some text")).toEqual([]);
+  });
+
+  it("extracts a single image", () => {
+    const md = "Before ![screenshot](https://example.com/img.png) after";
+    expect(extractImageUrls(md)).toEqual([
+      { alt: "screenshot", url: "https://example.com/img.png" },
+    ]);
+  });
+
+  it("extracts multiple images", () => {
+    const md =
+      "![a](https://example.com/1.png) text ![b](https://example.com/2.jpg)";
+    expect(extractImageUrls(md)).toEqual([
+      { alt: "a", url: "https://example.com/1.png" },
+      { alt: "b", url: "https://example.com/2.jpg" },
+    ]);
+  });
+
+  it("handles empty alt text", () => {
+    const md = "![](https://example.com/img.png)";
+    expect(extractImageUrls(md)).toEqual([
+      { alt: "", url: "https://example.com/img.png" },
+    ]);
+  });
+});
+
+describe("replaceImageUrls", () => {
+  it("replaces matched URLs with filenames", () => {
+    const md = "See ![screenshot](https://example.com/img.png) for details";
+    const map = new Map([["https://example.com/img.png", "img.png"]]);
+    expect(replaceImageUrls(md, map)).toBe(
+      "See ![screenshot](img.png) for details",
+    );
+  });
+
+  it("leaves unmatched URLs unchanged", () => {
+    const md = "![a](https://example.com/1.png) ![b](https://other.com/2.png)";
+    const map = new Map([["https://example.com/1.png", "1.png"]]);
+    expect(replaceImageUrls(md, map)).toBe(
+      "![a](1.png) ![b](https://other.com/2.png)",
+    );
+  });
+});
+
+describe("postToJira with images", () => {
+  const origFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = origFetch;
+    core.info.mockClear();
+    core.warning.mockClear();
+  });
+
+  it("downloads images, uploads attachments, and replaces URLs in comment", async () => {
+    const prWithImage: PrContext = {
+      ...pr,
+      body: "## Summary\n\n![screenshot](https://example.com/shot.png)\n\nDone.",
+    };
+
+    const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    const fetchMock = jest.fn(async (url: string | URL | Request) => {
+      const urlStr = typeof url === "string" ? url : url.toString();
+
+      // Image download
+      if (urlStr === "https://example.com/shot.png") {
+        return {
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          headers: new Headers({ "content-type": "image/png" }),
+          arrayBuffer: async () => pngBytes.buffer,
+        };
+      }
+
+      // Attachment upload
+      if (urlStr.includes("/attachments")) {
+        return {
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          json: async () => ({}),
+        };
+      }
+
+      // Comment create
+      return {
+        ok: true,
+        status: 201,
+        statusText: "OK",
+        json: async () => ({}),
+      };
+    }) as unknown as jest.Mock & typeof global.fetch;
+    global.fetch = fetchMock;
+
+    await postToJira(
+      ["PROJ-1"],
+      prWithImage,
+      config,
+      "update",
+      "opened",
+      false,
+    );
+
+    // Should have: 1 download + 1 upload + 1 comment = 3 fetches
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    // Verify attachment upload has correct headers
+    const uploadCall = fetchMock.mock.calls[1] as [
+      string,
+      Record<string, unknown>,
+    ];
+    expect(uploadCall[0]).toContain("/attachments");
+    const uploadHeaders = uploadCall[1].headers as Record<string, string>;
+    expect(uploadHeaders["X-Atlassian-Token"]).toBe("no-check");
+
+    // Verify the comment body references the filename, not the URL
+    const commentCall = fetchMock.mock.calls[2] as [
+      string,
+      Record<string, unknown>,
+    ];
+    const commentBody = JSON.parse(commentCall[1].body as string)
+      .body as string;
+    expect(commentBody).toContain("!shot.png!");
+    expect(commentBody).not.toContain("https://example.com/shot.png");
+
+    expect(core.info).toHaveBeenCalledWith("Found 1 image(s) in PR body");
+    expect(core.info).toHaveBeenCalledWith("Uploaded shot.png to PROJ-1");
+  });
+
+  it("adds auth header for GitHub URLs when token provided", async () => {
+    const prWithGhImage: PrContext = {
+      ...pr,
+      body: "![img](https://user-images.githubusercontent.com/123/shot.png)",
+    };
+
+    const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    const fetchMock = jest.fn(async (url: string | URL | Request) => {
+      const urlStr = typeof url === "string" ? url : url.toString();
+      if (urlStr.includes("githubusercontent.com")) {
+        return {
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          headers: new Headers({ "content-type": "image/png" }),
+          arrayBuffer: async () => pngBytes.buffer,
+        };
+      }
+      return {
+        ok: true,
+        status: urlStr.includes("/attachments") ? 200 : 201,
+        statusText: "OK",
+        json: async () => ({}),
+      };
+    }) as unknown as jest.Mock & typeof global.fetch;
+    global.fetch = fetchMock;
+
+    await postToJira(
+      ["PROJ-1"],
+      prWithGhImage,
+      config,
+      "update",
+      "opened",
+      false,
+      "gh-token-123",
+    );
+
+    // Verify download request included auth header
+    const downloadCall = fetchMock.mock.calls[0] as [
+      string,
+      Record<string, unknown>,
+    ];
+    const downloadHeaders = downloadCall[1].headers as Record<string, string>;
+    expect(downloadHeaders["Authorization"]).toBe("token gh-token-123");
+  });
+
+  it("gracefully degrades when image download fails", async () => {
+    const prWithImage: PrContext = {
+      ...pr,
+      body: "![broken](https://example.com/missing.png)\n\nText.",
+    };
+
+    const fetchMock = jest.fn(async (url: string | URL | Request) => {
+      const urlStr = typeof url === "string" ? url : url.toString();
+      if (urlStr === "https://example.com/missing.png") {
+        return {
+          ok: false,
+          status: 404,
+          statusText: "Not Found",
+        };
+      }
+      return {
+        ok: true,
+        status: 201,
+        statusText: "OK",
+        json: async () => ({}),
+      };
+    }) as unknown as jest.Mock & typeof global.fetch;
+    global.fetch = fetchMock;
+
+    await postToJira(
+      ["PROJ-1"],
+      prWithImage,
+      config,
+      "update",
+      "opened",
+      false,
+    );
+
+    // Should warn about the download failure
+    expect(core.warning).toHaveBeenCalledWith(
+      expect.stringContaining("Failed to download image"),
+    );
+
+    // Should still create the comment (1 download attempt + 1 comment = 2 fetches)
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    // Comment should still contain the original URL
+    const commentCall = fetchMock.mock.calls[1] as [
+      string,
+      Record<string, unknown>,
+    ];
+    const commentBody = JSON.parse(commentCall[1].body as string)
+      .body as string;
+    expect(commentBody).toContain("https://example.com/missing.png");
+    expect(core.info).toHaveBeenCalledWith("Created comment on PROJ-1");
+  });
+
+  it("deduplicates downloads for the same URL", async () => {
+    const prWithDupes: PrContext = {
+      ...pr,
+      body: "![a](https://example.com/img.png) ![b](https://example.com/img.png)",
+    };
+
+    const pngBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    const fetchMock = jest.fn(async (url: string | URL | Request) => {
+      const urlStr = typeof url === "string" ? url : url.toString();
+      if (urlStr === "https://example.com/img.png") {
+        return {
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          headers: new Headers({ "content-type": "image/png" }),
+          arrayBuffer: async () => pngBytes.buffer,
+        };
+      }
+      return {
+        ok: true,
+        status: urlStr.includes("/attachments") ? 200 : 201,
+        statusText: "OK",
+        json: async () => ({}),
+      };
+    }) as unknown as jest.Mock & typeof global.fetch;
+    global.fetch = fetchMock;
+
+    await postToJira(
+      ["PROJ-1"],
+      prWithDupes,
+      config,
+      "update",
+      "opened",
+      false,
+    );
+
+    // Only 1 download (deduped) + 1 upload + 1 comment = 3
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(core.info).toHaveBeenCalledWith("Found 2 image(s) in PR body");
   });
 });

@@ -139,6 +139,7 @@ async function run(): Promise<void> {
           };
 
           const prAction = (context.payload.action as string) || "opened";
+          const githubToken = core.getInput("github_token") || undefined;
           await postToJira(
             keys,
             pr,
@@ -146,6 +147,7 @@ async function run(): Promise<void> {
             inputs.jiraCommentMode,
             prAction,
             inputs.jiraFailOnError,
+            githubToken,
           );
         }
       } else if (!isPr) {

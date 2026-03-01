@@ -30350,7 +30350,8 @@ async function run() {
                         url: prPayload.html_url,
                     };
                     const prAction = context.payload.action || "opened";
-                    await (0, jira_1.postToJira)(keys, pr, jiraConfig, inputs.jiraCommentMode, prAction, inputs.jiraFailOnError);
+                    const githubToken = core.getInput("github_token") || undefined;
+                    await (0, jira_1.postToJira)(keys, pr, jiraConfig, inputs.jiraCommentMode, prAction, inputs.jiraFailOnError, githubToken);
                 }
             }
             else if (!isPr) {
@@ -30409,9 +30410,100 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.extractImageUrls = extractImageUrls;
+exports.downloadImage = downloadImage;
+exports.uploadAttachment = uploadAttachment;
+exports.replaceImageUrls = replaceImageUrls;
 exports.postToJira = postToJira;
 const core = __importStar(__nccwpck_require__(7484));
 const jira2md_1 = __importDefault(__nccwpck_require__(1851));
+const CONTENT_TYPE_TO_EXT = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
+    "image/svg+xml": ".svg",
+};
+function extractImageUrls(markdown) {
+    const results = [];
+    const regex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+    let match;
+    while ((match = regex.exec(markdown)) !== null) {
+        results.push({ alt: match[1], url: match[2] });
+    }
+    return results;
+}
+function isGitHubUrl(url) {
+    try {
+        const host = new URL(url).hostname;
+        return host === "github.com" || host.endsWith(".githubusercontent.com");
+    }
+    catch {
+        return false;
+    }
+}
+function filenameFromUrl(url, contentType) {
+    const pathname = new URL(url).pathname;
+    let basename = pathname.split("/").pop() || "image";
+    const hasExt = /\.\w{2,5}$/.test(basename);
+    if (!hasExt && contentType) {
+        const ext = CONTENT_TYPE_TO_EXT[contentType] || ".bin";
+        basename += ext;
+    }
+    return basename;
+}
+async function downloadImage(url, githubToken) {
+    try {
+        const headers = {};
+        if (githubToken && isGitHubUrl(url)) {
+            headers["Authorization"] = `token ${githubToken}`;
+        }
+        const response = await fetch(url, { headers });
+        if (!response.ok) {
+            core.warning(`Failed to download image ${url}: ${response.status}`);
+            return null;
+        }
+        const contentType = response.headers.get("content-type") || "application/octet-stream";
+        const buffer = Buffer.from(await response.arrayBuffer());
+        const filename = filenameFromUrl(url, contentType);
+        return { buffer, filename, contentType };
+    }
+    catch (error) {
+        core.warning(`Failed to download image ${url}: ${error instanceof Error ? error.message : String(error)}`);
+        return null;
+    }
+}
+async function uploadAttachment(issueKey, filename, buffer, contentType, config) {
+    const url = `${config.baseUrl}/rest/api/2/issue/${issueKey}/attachments`;
+    const boundary = `----formdata-${Date.now()}`;
+    const header = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${contentType}\r\n\r\n`;
+    const footer = `\r\n--${boundary}--\r\n`;
+    const body = Buffer.concat([
+        Buffer.from(header),
+        buffer,
+        Buffer.from(footer),
+    ]);
+    const response = await fetch(url, {
+        method: "POST",
+        headers: {
+            Authorization: authHeader(config),
+            "X-Atlassian-Token": "no-check",
+            "Content-Type": `multipart/form-data; boundary=${boundary}`,
+        },
+        body,
+    });
+    if (!response.ok) {
+        core.warning(`Failed to upload attachment ${filename} to ${issueKey}: ${response.status}`);
+        return false;
+    }
+    return true;
+}
+function replaceImageUrls(markdown, urlToFilename) {
+    return markdown.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (original, alt, url) => {
+        const filename = urlToFilename.get(url);
+        return filename ? `![${alt}](${filename})` : original;
+    });
+}
 function buildFullBody(pr) {
     const wikiBody = jira2md_1.default.to_jira(pr.body);
     return [`h3. [${pr.title}|${pr.url}]`, "", wikiBody].join("\n");
@@ -30472,12 +30564,44 @@ async function updateComment(issueKey, commentId, body, config) {
         throw new Error(`Failed to update comment ${commentId} on ${issueKey}: ${response.status} ${response.statusText}`);
     }
 }
-async function postToJira(keys, pr, config, mode, prAction, failOnError) {
+async function postToJira(keys, pr, config, mode, prAction, failOnError, githubToken) {
     config = { ...config, baseUrl: config.baseUrl.replace(/\/+$/, "") };
+    // Extract and download images once (dedup by URL)
+    const images = extractImageUrls(pr.body);
+    const downloaded = new Map();
+    if (images.length > 0) {
+        core.info(`Found ${images.length} image(s) in PR body`);
+        const seenUrls = new Set();
+        for (const img of images) {
+            if (seenUrls.has(img.url))
+                continue;
+            seenUrls.add(img.url);
+            const result = await downloadImage(img.url, githubToken);
+            if (result) {
+                downloaded.set(img.url, result);
+            }
+        }
+    }
     for (const key of keys) {
         try {
+            // Upload attachments for this issue and build URL→filename map
+            const urlToFilename = new Map();
+            for (const [url, { buffer, filename, contentType }] of downloaded) {
+                const ok = await uploadAttachment(key, filename, buffer, contentType, config);
+                if (ok) {
+                    urlToFilename.set(url, filename);
+                    core.info(`Uploaded ${filename} to ${key}`);
+                }
+            }
+            // Replace image URLs in PR body before building comment
+            const prWithImages = {
+                ...pr,
+                body: urlToFilename.size > 0
+                    ? replaceImageUrls(pr.body, urlToFilename)
+                    : pr.body,
+            };
             if (mode === "update") {
-                const body = buildFullBody(pr);
+                const body = buildFullBody(prWithImages);
                 if (prAction === "opened") {
                     await createComment(key, body, config);
                     core.info(`Created comment on ${key}`);
@@ -30496,17 +30620,17 @@ async function postToJira(keys, pr, config, mode, prAction, failOnError) {
             }
             else if (mode === "minimal") {
                 if (prAction === "opened") {
-                    await createComment(key, buildFullBody(pr), config);
+                    await createComment(key, buildFullBody(prWithImages), config);
                     core.info(`Created comment on ${key}`);
                 }
                 else {
-                    await createComment(key, buildMinimalBody(pr), config);
+                    await createComment(key, buildMinimalBody(prWithImages), config);
                     core.info(`Created minimal comment on ${key}`);
                 }
             }
             else {
                 // "new" — always create a full comment
-                await createComment(key, buildFullBody(pr), config);
+                await createComment(key, buildFullBody(prWithImages), config);
                 core.info(`Created comment on ${key}`);
             }
         }
