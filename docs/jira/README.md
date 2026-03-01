@@ -8,4 +8,10 @@
 
 ## Functions
 
+- [deduplicateFilenames](functions/deduplicateFilenames.md)
+- [downloadImage](functions/downloadImage.md)
+- [extractImageUrls](functions/extractImageUrls.md)
+- [isSafeUrl](functions/isSafeUrl.md)
 - [postToJira](functions/postToJira.md)
+- [replaceImageUrls](functions/replaceImageUrls.md)
+- [uploadAttachment](functions/uploadAttachment.md)

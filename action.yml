@@ -48,7 +48,11 @@ inputs:
     required: false
     default: "false"
   github_token:
-    description: "GitHub token for modifying PRs. Usually secrets.GITHUB_TOKEN."
+    description: "GitHub token for downloading GitHub-hosted images in PR bodies and authenticating API requests. Usually secrets.GITHUB_TOKEN."
+    required: false
+    default: ""
+  allowed_image_hosts:
+    description: 'Comma-separated hostnames allowed for image downloads (e.g. "user-images.githubusercontent.com,example.com"). When set, only these hosts are permitted. When empty, all non-private HTTPS hosts are allowed.'
     required: false
     default: ""
 

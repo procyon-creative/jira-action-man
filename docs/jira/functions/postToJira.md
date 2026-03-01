@@ -6,9 +6,9 @@
 
 # Function: postToJira()
 
-> **postToJira**(`keys`, `pr`, `config`, `mode`, `prAction`, `failOnError`): `Promise`\<`void`\>
+> **postToJira**(`keys`, `pr`, `config`, `mode`, `prAction`, `failOnError`, `githubToken?`, `allowedHosts?`): `Promise`\<`void`\>
 
-Defined in: [jira.ts:103](https://github.com/procyon-creative/jira-action-man/blob/f1cb3edc20aba5e25a575d010bdaec3b7026319d/src/jira.ts#L103)
+Defined in: [jira.ts:350](https://github.com/procyon-creative/jira-action-man/blob/ec8e53e5639ff626b77256a9793c0a5912c45a97/src/jira.ts#L350)
 
 ## Parameters
 
@@ -35,6 +35,14 @@ Defined in: [jira.ts:103](https://github.com/procyon-creative/jira-action-man/bl
 ### failOnError
 
 `boolean`
+
+### githubToken?
+
+`string`
+
+### allowedHosts?
+
+`string`[]
 
 ## Returns
 

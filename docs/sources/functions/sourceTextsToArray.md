@@ -8,7 +8,7 @@
 
 > **sourceTextsToArray**(`texts`): `string`[]
 
-Defined in: [sources.ts:93](https://github.com/procyon-creative/jira-action-man/blob/f1cb3edc20aba5e25a575d010bdaec3b7026319d/src/sources.ts#L93)
+Defined in: [sources.ts:93](https://github.com/procyon-creative/jira-action-man/blob/ec8e53e5639ff626b77256a9793c0a5912c45a97/src/sources.ts#L93)
 
 ## Parameters
 
