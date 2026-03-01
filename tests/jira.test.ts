@@ -51,24 +51,15 @@ describe("postToJira", () => {
     core.warning.mockClear();
   });
 
-  it("creates a new comment when none exists", async () => {
-    const fetchMock = mockFetch([
-      { status: 200, body: { comments: [] } },
-      { status: 201 },
-    ]);
+  it("creates a new comment on PR opened (no lookup)", async () => {
+    const fetchMock = mockFetch([{ status: 201 }]);
     global.fetch = fetchMock;
 
-    await postToJira(["PROJ-1"], pr, config, false);
+    await postToJira(["PROJ-1"], pr, config, "update", "opened", false);
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    const [getUrl, getOpts] = getCall(fetchMock, 0);
-    expect(getUrl).toBe(
-      "https://test.atlassian.net/rest/api/2/issue/PROJ-1/comment",
-    );
-    expect(getOpts.method).toBeUndefined();
-
-    const [postUrl, postOpts] = getCall(fetchMock, 1);
+    const [postUrl, postOpts] = getCall(fetchMock, 0);
     expect(postUrl).toBe(
       "https://test.atlassian.net/rest/api/2/issue/PROJ-1/comment",
     );
@@ -80,7 +71,7 @@ describe("postToJira", () => {
     expect(core.info).toHaveBeenCalledWith("Created comment on PROJ-1");
   });
 
-  it("updates an existing comment when PR URL is found", async () => {
+  it("updates an existing comment on PR synchronize", async () => {
     const fetchMock = mockFetch([
       {
         status: 200,
@@ -98,7 +89,7 @@ describe("postToJira", () => {
     ]);
     global.fetch = fetchMock;
 
-    await postToJira(["PROJ-1"], pr, config, false);
+    await postToJira(["PROJ-1"], pr, config, "update", "synchronize", false);
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
@@ -111,18 +102,35 @@ describe("postToJira", () => {
     expect(core.info).toHaveBeenCalledWith("Updated comment on PROJ-1");
   });
 
-  it("posts to multiple issues", async () => {
+  it("creates comment on PR synchronize when no existing comment found", async () => {
     const fetchMock = mockFetch([
-      { status: 200, body: { comments: [] } },
-      { status: 201 },
       { status: 200, body: { comments: [] } },
       { status: 201 },
     ]);
     global.fetch = fetchMock;
 
-    await postToJira(["PROJ-1", "PROJ-2"], pr, config, false);
+    await postToJira(["PROJ-1"], pr, config, "update", "synchronize", false);
 
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [, postOpts] = getCall(fetchMock, 1);
+    expect(postOpts.method).toBe("POST");
+    expect(core.info).toHaveBeenCalledWith("Created comment on PROJ-1");
+  });
+
+  it("posts to multiple issues", async () => {
+    const fetchMock = mockFetch([{ status: 201 }, { status: 201 }]);
+    global.fetch = fetchMock;
+
+    await postToJira(
+      ["PROJ-1", "PROJ-2"],
+      pr,
+      config,
+      "update",
+      "opened",
+      false,
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(core.info).toHaveBeenCalledWith("Created comment on PROJ-1");
     expect(core.info).toHaveBeenCalledWith("Created comment on PROJ-2");
   });
@@ -130,7 +138,7 @@ describe("postToJira", () => {
   it("warns on error by default (failOnError=false)", async () => {
     global.fetch = mockFetch([{ status: 404 }]);
 
-    await postToJira(["PROJ-1"], pr, config, false);
+    await postToJira(["PROJ-1"], pr, config, "update", "opened", false);
 
     expect(core.warning).toHaveBeenCalledWith(
       expect.stringContaining("Failed to post to PROJ-1"),
@@ -140,9 +148,9 @@ describe("postToJira", () => {
   it("throws on error when failOnError=true", async () => {
     global.fetch = mockFetch([{ status: 404 }]);
 
-    await expect(postToJira(["PROJ-1"], pr, config, true)).rejects.toThrow(
-      "Failed to post to PROJ-1",
-    );
+    await expect(
+      postToJira(["PROJ-1"], pr, config, "update", "opened", true),
+    ).rejects.toThrow("Failed to post to PROJ-1");
   });
 
   it("sends correct Basic auth header", async () => {
@@ -152,7 +160,7 @@ describe("postToJira", () => {
     ]);
     global.fetch = fetchMock;
 
-    await postToJira(["PROJ-1"], pr, config, false);
+    await postToJira(["PROJ-1"], pr, config, "update", "opened", false);
 
     const expectedAuth =
       "Basic " + Buffer.from("user@example.com:test-token").toString("base64");
@@ -163,15 +171,12 @@ describe("postToJira", () => {
   });
 
   it("includes PR title as linked heading in comment body", async () => {
-    const fetchMock = mockFetch([
-      { status: 200, body: { comments: [] } },
-      { status: 201 },
-    ]);
+    const fetchMock = mockFetch([{ status: 201 }]);
     global.fetch = fetchMock;
 
-    await postToJira(["PROJ-1"], pr, config, false);
+    await postToJira(["PROJ-1"], pr, config, "update", "opened", false);
 
-    const [, postOpts] = getCall(fetchMock, 1);
+    const [, postOpts] = getCall(fetchMock, 0);
     const body = JSON.parse(postOpts.body as string);
     expect(body.body).toContain(
       "[PROJ-1 Add feature|https://github.com/org/repo/pull/42]",
@@ -195,10 +200,55 @@ describe("postToJira", () => {
     ]);
     global.fetch = fetchMock;
 
-    await postToJira(["PROJ-1"], pr, config, false);
+    await postToJira(["PROJ-1"], pr, config, "update", "synchronize", false);
 
     const [, postOpts] = getCall(fetchMock, 1);
     expect(postOpts.method).toBe("POST");
+  });
+
+  it("mode 'new' always creates without checking existing comments", async () => {
+    const fetchMock = mockFetch([{ status: 201 }]);
+    global.fetch = fetchMock;
+
+    await postToJira(["PROJ-1"], pr, config, "new", "opened", false);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [postUrl, postOpts] = getCall(fetchMock, 0);
+    expect(postUrl).toBe(
+      "https://test.atlassian.net/rest/api/2/issue/PROJ-1/comment",
+    );
+    expect(postOpts.method).toBe("POST");
+    expect(core.info).toHaveBeenCalledWith("Created comment on PROJ-1");
+  });
+
+  it("mode 'minimal' posts full comment when PR is opened", async () => {
+    const fetchMock = mockFetch([{ status: 201 }]);
+    global.fetch = fetchMock;
+
+    await postToJira(["PROJ-1"], pr, config, "minimal", "opened", false);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, postOpts] = getCall(fetchMock, 0);
+    const body = JSON.parse(postOpts.body as string);
+    expect(body.body).toContain("[PROJ-1 Add feature|");
+    expect(body.body).toContain("Added a new feature");
+    expect(core.info).toHaveBeenCalledWith("Created comment on PROJ-1");
+  });
+
+  it("mode 'minimal' posts single-line on subsequent events", async () => {
+    const fetchMock = mockFetch([{ status: 201 }]);
+    global.fetch = fetchMock;
+
+    await postToJira(["PROJ-1"], pr, config, "minimal", "synchronize", false);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, postOpts] = getCall(fetchMock, 0);
+    expect(postOpts.method).toBe("POST");
+    const body = JSON.parse(postOpts.body as string);
+    expect(body.body).toBe(
+      "PR updated: [PROJ-1 Add feature|https://github.com/org/repo/pull/42]",
+    );
+    expect(core.info).toHaveBeenCalledWith("Created minimal comment on PROJ-1");
   });
 
   it("continues to next issue after one fails (failOnError=false)", async () => {
@@ -209,7 +259,14 @@ describe("postToJira", () => {
     ]);
     global.fetch = fetchMock;
 
-    await postToJira(["PROJ-1", "PROJ-2"], pr, config, false);
+    await postToJira(
+      ["PROJ-1", "PROJ-2"],
+      pr,
+      config,
+      "update",
+      "opened",
+      false,
+    );
 
     expect(core.warning).toHaveBeenCalledWith(
       expect.stringContaining("Failed to post to PROJ-1"),

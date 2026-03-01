@@ -31,6 +31,7 @@ A GitHub Action that extracts Jira issue keys from GitHub events. A modern, main
 | `jira_base_url` | `""` | Jira instance base URL (e.g. `https://yourorg.atlassian.net`) |
 | `jira_email` | `""` | Jira account email for API authentication |
 | `jira_api_token` | `""` | Jira API token for authentication |
+| `jira_comment_mode` | `update` | Comment behavior: `update`, `new`, or `minimal` (see below) |
 | `jira_fail_on_error` | `false` | Fail the action if posting to Jira fails (default: warn only) |
 | `github_token` | `""` | GitHub token for modifying PRs |
 
@@ -82,7 +83,13 @@ Keys are sorted alphabetically by project prefix, then numerically by issue numb
 
 ### Post PR Description to Jira
 
-When `post_to_jira` is enabled on `pull_request` events, the action posts the PR description as a comment on each linked Jira ticket. If the PR is updated, the existing comment is updated instead of creating a duplicate (matched by PR URL).
+When `post_to_jira` is enabled on `pull_request` events, the action posts the PR description as a comment on each linked Jira ticket. The `jira_comment_mode` input controls the behavior:
+
+| Mode | Behavior |
+|------|----------|
+| `update` | Updates the existing comment if found, otherwise creates one. Best for keeping a single up-to-date comment per PR. |
+| `new` | Always creates a new comment. Gives a history trail of PR changes. |
+| `minimal` | Creates a single-line link to the PR. Low noise. |
 
 ```yaml
 - uses: procyon-creative/jira-action-man@main
@@ -90,6 +97,7 @@ When `post_to_jira` is enabled on `pull_request` events, the action posts the PR
   with:
     projects: "PROJ"
     post_to_jira: true
+    jira_comment_mode: update
     jira_base_url: ${{ secrets.JIRA_BASE_URL }}
     jira_email: ${{ secrets.JIRA_EMAIL }}
     jira_api_token: ${{ secrets.JIRA_API_TOKEN }}

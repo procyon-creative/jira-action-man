@@ -1,5 +1,7 @@
 export type Source = "branch" | "title" | "commits" | "body";
 
+export type JiraCommentMode = "update" | "new" | "minimal";
+
 export interface ActionInputs {
   projects: string[];
   from: Source[];
@@ -7,6 +9,7 @@ export interface ActionInputs {
   blocklist: string[];
   issuePattern: RegExp;
   postToJira: boolean;
+  jiraCommentMode: JiraCommentMode;
   jiraFailOnError: boolean;
 }
 

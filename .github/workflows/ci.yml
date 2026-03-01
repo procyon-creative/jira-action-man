@@ -1,6 +1,28 @@
 name: CI
 
+# Jira configuration — override via repo Settings → Secrets and variables
+env:
+  # Jira credentials (set as repo secrets)
+  JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+  JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+  JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+
+  # Comment mode: "update" | "new" | "minimal"
+  #   new     — always create a new verbose comment (gives a history trail)
+  #   minimal — verbose new comment, new updates are only a single-line
+  #   update  — update existing comment if found, otherwise create
+  JIRA_COMMENT_MODE: ${{ inputs.jira_comment_mode || vars.JIRA_COMMENT_MODE || 'new' }}
+
 on:
+  workflow_dispatch:
+    inputs:
+      jira_comment_mode:
+        description: "Comment mode override"
+        type: choice
+        options:
+          - new
+          - minimal
+          - update
   pull_request:
     types: [opened, synchronize, reopened, edited]
   push:
@@ -32,9 +54,10 @@ jobs:
           projects: "JAM"
           from: "branch,title,body"
           post_to_jira: true
-          jira_base_url: ${{ secrets.JIRA_BASE_URL }}
-          jira_email: ${{ secrets.JIRA_EMAIL }}
-          jira_api_token: ${{ secrets.JIRA_API_TOKEN }}
+          jira_base_url: ${{ env.JIRA_BASE_URL }}
+          jira_email: ${{ env.JIRA_EMAIL }}
+          jira_api_token: ${{ env.JIRA_API_TOKEN }}
+          jira_comment_mode: ${{ env.JIRA_COMMENT_MODE }}
 
       - run: |
           echo "Found: ${{ steps.jira.outputs.found }}"

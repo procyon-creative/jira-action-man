@@ -39,6 +39,10 @@ inputs:
     description: "Jira API token for authentication"
     required: false
     default: ""
+  jira_comment_mode:
+    description: 'Comment behavior: "update" (default) updates existing comment, "new" always creates a new comment, "minimal" posts a single-line link'
+    required: false
+    default: "update"
   jira_fail_on_error:
     description: "Fail the action if posting to Jira fails (default: warn only)"
     required: false

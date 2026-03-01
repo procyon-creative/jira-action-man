@@ -1,6 +1,12 @@
 import * as core from "@actions/core";
 import * as github from "@actions/github";
-import { ActionInputs, JiraConfig, PrContext, Source } from "./types";
+import {
+  ActionInputs,
+  JiraCommentMode,
+  JiraConfig,
+  PrContext,
+  Source,
+} from "./types";
 import {
   DEFAULT_BLOCKLIST,
   DEFAULT_ISSUE_PATTERN,
@@ -43,6 +49,12 @@ function parseInputs(): ActionInputs {
   const issuePattern = new RegExp(patternRaw || DEFAULT_ISSUE_PATTERN, "g");
 
   const postToJira = core.getInput("post_to_jira") === "true";
+  const jiraCommentModeRaw = core.getInput("jira_comment_mode") || "update";
+  const jiraCommentMode = (
+    ["update", "new", "minimal"].includes(jiraCommentModeRaw)
+      ? jiraCommentModeRaw
+      : "update"
+  ) as JiraCommentMode;
   const jiraFailOnError = core.getInput("jira_fail_on_error") === "true";
 
   return {
@@ -52,6 +64,7 @@ function parseInputs(): ActionInputs {
     blocklist,
     issuePattern,
     postToJira,
+    jiraCommentMode,
     jiraFailOnError,
   };
 }
@@ -125,7 +138,15 @@ async function run(): Promise<void> {
             url: prPayload.html_url as string,
           };
 
-          await postToJira(keys, pr, jiraConfig, inputs.jiraFailOnError);
+          const prAction = (context.payload.action as string) || "opened";
+          await postToJira(
+            keys,
+            pr,
+            jiraConfig,
+            inputs.jiraCommentMode,
+            prAction,
+            inputs.jiraFailOnError,
+          );
         }
       } else if (!isPr) {
         core.info(

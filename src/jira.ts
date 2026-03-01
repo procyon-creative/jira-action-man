@@ -1,13 +1,14 @@
 import * as core from "@actions/core";
 import j2m from "jira2md";
-import { JiraConfig, PrContext } from "./types";
+import { JiraCommentMode, JiraConfig, PrContext } from "./types";
 
-function buildCommentBody(pr: PrContext): string {
+function buildFullBody(pr: PrContext): string {
   const wikiBody = j2m.to_jira(pr.body);
+  return [`h3. [${pr.title}|${pr.url}]`, "", wikiBody].join("\n");
+}
 
-  const lines = [`h3. [${pr.title}|${pr.url}]`, "", wikiBody];
-
-  return lines.join("\n");
+function buildMinimalBody(pr: PrContext): string {
+  return `PR updated: [${pr.title}|${pr.url}]`;
 }
 
 function authHeader(config: JiraConfig): string {
@@ -103,20 +104,40 @@ export async function postToJira(
   keys: string[],
   pr: PrContext,
   config: JiraConfig,
+  mode: JiraCommentMode,
+  prAction: string,
   failOnError: boolean,
 ): Promise<void> {
   config = { ...config, baseUrl: config.baseUrl.replace(/\/+$/, "") };
-  const commentBody = buildCommentBody(pr);
 
   for (const key of keys) {
     try {
-      const existingId = await findExistingComment(key, pr.url, config);
-
-      if (existingId) {
-        await updateComment(key, existingId, commentBody, config);
-        core.info(`Updated comment on ${key}`);
+      if (mode === "update") {
+        const body = buildFullBody(pr);
+        if (prAction === "opened") {
+          await createComment(key, body, config);
+          core.info(`Created comment on ${key}`);
+        } else {
+          const existingId = await findExistingComment(key, pr.url, config);
+          if (existingId) {
+            await updateComment(key, existingId, body, config);
+            core.info(`Updated comment on ${key}`);
+          } else {
+            await createComment(key, body, config);
+            core.info(`Created comment on ${key}`);
+          }
+        }
+      } else if (mode === "minimal") {
+        if (prAction === "opened") {
+          await createComment(key, buildFullBody(pr), config);
+          core.info(`Created comment on ${key}`);
+        } else {
+          await createComment(key, buildMinimalBody(pr), config);
+          core.info(`Created minimal comment on ${key}`);
+        }
       } else {
-        await createComment(key, commentBody, config);
+        // "new" — always create a full comment
+        await createComment(key, buildFullBody(pr), config);
         core.info(`Created comment on ${key}`);
       }
     } catch (error) {

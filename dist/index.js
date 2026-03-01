@@ -30277,6 +30277,10 @@ function parseInputs() {
     const patternRaw = core.getInput("issue_pattern");
     const issuePattern = new RegExp(patternRaw || extract_1.DEFAULT_ISSUE_PATTERN, "g");
     const postToJira = core.getInput("post_to_jira") === "true";
+    const jiraCommentModeRaw = core.getInput("jira_comment_mode") || "update";
+    const jiraCommentMode = (["update", "new", "minimal"].includes(jiraCommentModeRaw)
+        ? jiraCommentModeRaw
+        : "update");
     const jiraFailOnError = core.getInput("jira_fail_on_error") === "true";
     return {
         projects,
@@ -30285,6 +30289,7 @@ function parseInputs() {
         blocklist,
         issuePattern,
         postToJira,
+        jiraCommentMode,
         jiraFailOnError,
     };
 }
@@ -30344,7 +30349,8 @@ async function run() {
                         body: prPayload.body || "",
                         url: prPayload.html_url,
                     };
-                    await (0, jira_1.postToJira)(keys, pr, jiraConfig, inputs.jiraFailOnError);
+                    const prAction = context.payload.action || "opened";
+                    await (0, jira_1.postToJira)(keys, pr, jiraConfig, inputs.jiraCommentMode, prAction, inputs.jiraFailOnError);
                 }
             }
             else if (!isPr) {
@@ -30406,10 +30412,12 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.postToJira = postToJira;
 const core = __importStar(__nccwpck_require__(7484));
 const jira2md_1 = __importDefault(__nccwpck_require__(1851));
-function buildCommentBody(pr) {
+function buildFullBody(pr) {
     const wikiBody = jira2md_1.default.to_jira(pr.body);
-    const lines = [`h3. [${pr.title}|${pr.url}]`, "", wikiBody];
-    return lines.join("\n");
+    return [`h3. [${pr.title}|${pr.url}]`, "", wikiBody].join("\n");
+}
+function buildMinimalBody(pr) {
+    return `PR updated: [${pr.title}|${pr.url}]`;
 }
 function authHeader(config) {
     return ("Basic " +
@@ -30464,18 +30472,41 @@ async function updateComment(issueKey, commentId, body, config) {
         throw new Error(`Failed to update comment ${commentId} on ${issueKey}: ${response.status} ${response.statusText}`);
     }
 }
-async function postToJira(keys, pr, config, failOnError) {
+async function postToJira(keys, pr, config, mode, prAction, failOnError) {
     config = { ...config, baseUrl: config.baseUrl.replace(/\/+$/, "") };
-    const commentBody = buildCommentBody(pr);
     for (const key of keys) {
         try {
-            const existingId = await findExistingComment(key, pr.url, config);
-            if (existingId) {
-                await updateComment(key, existingId, commentBody, config);
-                core.info(`Updated comment on ${key}`);
+            if (mode === "update") {
+                const body = buildFullBody(pr);
+                if (prAction === "opened") {
+                    await createComment(key, body, config);
+                    core.info(`Created comment on ${key}`);
+                }
+                else {
+                    const existingId = await findExistingComment(key, pr.url, config);
+                    if (existingId) {
+                        await updateComment(key, existingId, body, config);
+                        core.info(`Updated comment on ${key}`);
+                    }
+                    else {
+                        await createComment(key, body, config);
+                        core.info(`Created comment on ${key}`);
+                    }
+                }
+            }
+            else if (mode === "minimal") {
+                if (prAction === "opened") {
+                    await createComment(key, buildFullBody(pr), config);
+                    core.info(`Created comment on ${key}`);
+                }
+                else {
+                    await createComment(key, buildMinimalBody(pr), config);
+                    core.info(`Created minimal comment on ${key}`);
+                }
             }
             else {
-                await createComment(key, commentBody, config);
+                // "new" — always create a full comment
+                await createComment(key, buildFullBody(pr), config);
                 core.info(`Created comment on ${key}`);
             }
         }
