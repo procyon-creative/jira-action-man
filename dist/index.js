@@ -30419,12 +30419,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.extractImageUrls = extractImageUrls;
 exports.replaceImageUrls = replaceImageUrls;
+exports.isPrivateIp = isPrivateIp;
 exports.isSafeUrl = isSafeUrl;
 exports.deduplicateFilenames = deduplicateFilenames;
 exports.downloadImage = downloadImage;
 exports.uploadAttachment = uploadAttachment;
 exports.postToJira = postToJira;
 const core = __importStar(__nccwpck_require__(7484));
+const promises_1 = __nccwpck_require__(1553);
 const jira2md_1 = __importDefault(__nccwpck_require__(1851));
 const marked_1 = __nccwpck_require__(9257);
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -30471,7 +30473,9 @@ function replaceImageUrls(markdown, urlToFilename) {
             const idx = result.lastIndexOf(img.raw);
             if (idx !== -1) {
                 result =
-                    result.slice(0, idx) + replacement + result.slice(idx + img.raw.length);
+                    result.slice(0, idx) +
+                        replacement +
+                        result.slice(idx + img.raw.length);
             }
         }
     }
@@ -30486,7 +30490,15 @@ function isGitHubUrl(url) {
         return false;
     }
 }
-function isSafeUrl(url, allowedHosts) {
+function isPrivateIp(ip) {
+    for (const pattern of PRIVATE_IP_PATTERNS) {
+        if (pattern.test(ip)) {
+            return true;
+        }
+    }
+    return false;
+}
+async function isSafeUrl(url, allowedHosts) {
     let parsed;
     try {
         parsed = new URL(url);
@@ -30502,11 +30514,20 @@ function isSafeUrl(url, allowedHosts) {
     if (allowedHosts && allowedHosts.length > 0) {
         return allowedHosts.includes(parsed.hostname);
     }
-    // Block private/loopback/link-local IPs
-    for (const pattern of PRIVATE_IP_PATTERNS) {
-        if (pattern.test(parsed.hostname)) {
+    // Block literal private IPs in hostname
+    if (isPrivateIp(parsed.hostname)) {
+        return false;
+    }
+    // Resolve DNS and check all resolved addresses against private ranges
+    try {
+        const { address } = await (0, promises_1.lookup)(parsed.hostname);
+        if (isPrivateIp(address)) {
             return false;
         }
+    }
+    catch {
+        // DNS resolution failed — block the request
+        return false;
     }
     return true;
 }
@@ -30550,7 +30571,7 @@ function deduplicateFilenames(entries) {
 }
 async function downloadImage(url, githubToken, allowedHosts) {
     try {
-        if (!isSafeUrl(url, allowedHosts)) {
+        if (!(await isSafeUrl(url, allowedHosts))) {
             core.warning(`Blocked image download from unsafe URL: ${url}`);
             return null;
         }
@@ -30995,6 +31016,14 @@ module.exports = require("net");
 
 "use strict";
 module.exports = require("node:crypto");
+
+/***/ }),
+
+/***/ 1553:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:dns/promises");
 
 /***/ }),
 

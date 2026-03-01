@@ -1,4 +1,5 @@
 import * as core from "@actions/core";
+import { lookup } from "node:dns/promises";
 import j2m from "jira2md";
 import { marked } from "marked";
 import { JiraCommentMode, JiraConfig, PrContext } from "./types";
@@ -78,7 +79,19 @@ function isGitHubUrl(url: string): boolean {
   }
 }
 
-export function isSafeUrl(url: string, allowedHosts?: string[]): boolean {
+export function isPrivateIp(ip: string): boolean {
+  for (const pattern of PRIVATE_IP_PATTERNS) {
+    if (pattern.test(ip)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export async function isSafeUrl(
+  url: string,
+  allowedHosts?: string[],
+): Promise<boolean> {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -96,11 +109,20 @@ export function isSafeUrl(url: string, allowedHosts?: string[]): boolean {
     return allowedHosts.includes(parsed.hostname);
   }
 
-  // Block private/loopback/link-local IPs
-  for (const pattern of PRIVATE_IP_PATTERNS) {
-    if (pattern.test(parsed.hostname)) {
+  // Block literal private IPs in hostname
+  if (isPrivateIp(parsed.hostname)) {
+    return false;
+  }
+
+  // Resolve DNS and check all resolved addresses against private ranges
+  try {
+    const { address } = await lookup(parsed.hostname);
+    if (isPrivateIp(address)) {
       return false;
     }
+  } catch {
+    // DNS resolution failed — block the request
+    return false;
   }
 
   return true;
@@ -158,7 +180,7 @@ export async function downloadImage(
   allowedHosts?: string[],
 ): Promise<{ buffer: Buffer; filename: string; contentType: string } | null> {
   try {
-    if (!isSafeUrl(url, allowedHosts)) {
+    if (!(await isSafeUrl(url, allowedHosts))) {
       core.warning(`Blocked image download from unsafe URL: ${url}`);
       return null;
     }

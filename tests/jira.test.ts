@@ -4,9 +4,24 @@ import {
   replaceImageUrls,
   downloadImage,
   isSafeUrl,
+  isPrivateIp,
   deduplicateFilenames,
 } from "../src/jira";
 import { JiraConfig, PrContext } from "../src/types";
+
+jest.mock("node:dns/promises", () => ({
+  lookup: jest.fn(async (hostname: string) => {
+    // Simulate DNS resolution for tests
+    if (hostname === "resolves-to-private.example.com") {
+      return { address: "127.0.0.1", family: 4 };
+    }
+    if (hostname === "resolves-to-10.example.com") {
+      return { address: "10.0.0.1", family: 4 };
+    }
+    // Public hostnames resolve to a public IP
+    return { address: "93.184.216.34", family: 4 };
+  }),
+}));
 
 jest.mock("@actions/core", () => ({
   info: jest.fn(),
@@ -361,49 +376,83 @@ describe("replaceImageUrls", () => {
   });
 });
 
+describe("isPrivateIp", () => {
+  it("detects loopback", () => {
+    expect(isPrivateIp("127.0.0.1")).toBe(true);
+  });
+
+  it("detects 10.x", () => {
+    expect(isPrivateIp("10.0.0.1")).toBe(true);
+  });
+
+  it("detects 192.168.x", () => {
+    expect(isPrivateIp("192.168.1.1")).toBe(true);
+  });
+
+  it("detects 172.16.x", () => {
+    expect(isPrivateIp("172.16.0.1")).toBe(true);
+  });
+
+  it("allows public IPs", () => {
+    expect(isPrivateIp("93.184.216.34")).toBe(false);
+  });
+});
+
 describe("isSafeUrl", () => {
-  it("allows HTTPS URLs", () => {
-    expect(isSafeUrl("https://example.com/img.png")).toBe(true);
+  it("allows HTTPS URLs", async () => {
+    await expect(isSafeUrl("https://example.com/img.png")).resolves.toBe(true);
   });
 
-  it("rejects HTTP URLs", () => {
-    expect(isSafeUrl("http://example.com/img.png")).toBe(false);
+  it("rejects HTTP URLs", async () => {
+    await expect(isSafeUrl("http://example.com/img.png")).resolves.toBe(false);
   });
 
-  it("rejects private IP 127.0.0.1", () => {
-    expect(isSafeUrl("https://127.0.0.1/img.png")).toBe(false);
+  it("rejects private IP 127.0.0.1", async () => {
+    await expect(isSafeUrl("https://127.0.0.1/img.png")).resolves.toBe(false);
   });
 
-  it("rejects private IP 10.x", () => {
-    expect(isSafeUrl("https://10.0.0.1/img.png")).toBe(false);
+  it("rejects private IP 10.x", async () => {
+    await expect(isSafeUrl("https://10.0.0.1/img.png")).resolves.toBe(false);
   });
 
-  it("rejects private IP 192.168.x", () => {
-    expect(isSafeUrl("https://192.168.1.1/img.png")).toBe(false);
+  it("rejects private IP 192.168.x", async () => {
+    await expect(isSafeUrl("https://192.168.1.1/img.png")).resolves.toBe(false);
   });
 
-  it("rejects private IP 172.16.x", () => {
-    expect(isSafeUrl("https://172.16.0.1/img.png")).toBe(false);
+  it("rejects private IP 172.16.x", async () => {
+    await expect(isSafeUrl("https://172.16.0.1/img.png")).resolves.toBe(false);
   });
 
-  it("rejects link-local IP 169.254.x", () => {
-    expect(isSafeUrl("https://169.254.1.1/img.png")).toBe(false);
+  it("rejects link-local IP 169.254.x", async () => {
+    await expect(isSafeUrl("https://169.254.1.1/img.png")).resolves.toBe(false);
   });
 
-  it("allows HTTPS when host is in allowedHosts", () => {
-    expect(
+  it("allows HTTPS when host is in allowedHosts", async () => {
+    await expect(
       isSafeUrl("https://cdn.example.com/img.png", ["cdn.example.com"]),
-    ).toBe(true);
+    ).resolves.toBe(true);
   });
 
-  it("rejects HTTPS when host is not in allowedHosts", () => {
-    expect(isSafeUrl("https://evil.com/img.png", ["cdn.example.com"])).toBe(
-      false,
-    );
+  it("rejects HTTPS when host is not in allowedHosts", async () => {
+    await expect(
+      isSafeUrl("https://evil.com/img.png", ["cdn.example.com"]),
+    ).resolves.toBe(false);
   });
 
-  it("rejects invalid URLs", () => {
-    expect(isSafeUrl("not-a-url")).toBe(false);
+  it("rejects invalid URLs", async () => {
+    await expect(isSafeUrl("not-a-url")).resolves.toBe(false);
+  });
+
+  it("rejects hostnames that resolve to private IPs (DNS rebinding)", async () => {
+    await expect(
+      isSafeUrl("https://resolves-to-private.example.com/img.png"),
+    ).resolves.toBe(false);
+  });
+
+  it("rejects hostnames that resolve to 10.x IPs", async () => {
+    await expect(
+      isSafeUrl("https://resolves-to-10.example.com/img.png"),
+    ).resolves.toBe(false);
   });
 });
 

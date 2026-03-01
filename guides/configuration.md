@@ -26,7 +26,8 @@ title: Configuration
 | `jira_api_token` | `""` | Jira API token for authentication |
 | `jira_comment_mode` | `"update"` | Comment behavior: `update`, `new`, or `minimal` |
 | `jira_fail_on_error` | `"false"` | Fail the action if posting to Jira fails |
-| `github_token` | `""` | GitHub token for modifying PRs |
+| `github_token` | `""` | GitHub token for downloading GitHub-hosted images in PR bodies |
+| `allowed_image_hosts` | `""` | Comma-separated hostnames allowed for image downloads (empty = all non-private HTTPS hosts) |
 
 ## Comment Modes
 

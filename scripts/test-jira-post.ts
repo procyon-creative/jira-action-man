@@ -1,10 +1,10 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env -S npx tsx
 /**
  * Local test script for posting to Jira.
  *
  * Usage:
- *   npx ts-node scripts/test-jira-post.ts JAM-2
- *   npx ts-node scripts/test-jira-post.ts JAM-2 --dry-run
+ *   npx tsx scripts/test-jira-post.ts JAM-2
+ *   npx tsx scripts/test-jira-post.ts JAM-2 --dry-run
  *
  * Reads Jira credentials from .env (INPUT_JIRA_BASE_URL, INPUT_JIRA_EMAIL, INPUT_JIRA_API_TOKEN).
  */
@@ -21,7 +21,7 @@ const dryRun = process.argv.includes("--dry-run");
 
 if (!issueKey) {
   console.error(
-    "Usage: npx ts-node scripts/test-jira-post.ts <ISSUE-KEY> [--dry-run]",
+    "Usage: npx tsx scripts/test-jira-post.ts <ISSUE-KEY> [--dry-run]",
   );
   process.exit(1);
 }
@@ -70,7 +70,7 @@ async function main() {
     return;
   }
 
-  await postToJira([issueKey], testPr, jiraConfig, true);
+  await postToJira([issueKey], testPr, jiraConfig, "new", "opened", false);
   console.log("Done!");
 }
 
