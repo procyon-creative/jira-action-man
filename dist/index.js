@@ -30282,6 +30282,14 @@ function parseInputs() {
         ? jiraCommentModeRaw
         : "update");
     const jiraFailOnError = core.getInput("jira_fail_on_error") === "true";
+    const githubToken = core.getInput("github_token") || undefined;
+    const allowedHostsRaw = core.getInput("allowed_image_hosts");
+    const allowedImageHosts = allowedHostsRaw
+        ? allowedHostsRaw
+            .split(",")
+            .map((h) => h.trim().toLowerCase())
+            .filter(Boolean)
+        : undefined;
     return {
         projects,
         from,
@@ -30291,6 +30299,8 @@ function parseInputs() {
         postToJira,
         jiraCommentMode,
         jiraFailOnError,
+        githubToken,
+        allowedImageHosts,
     };
 }
 async function run() {
@@ -30350,15 +30360,7 @@ async function run() {
                         url: prPayload.html_url,
                     };
                     const prAction = context.payload.action || "opened";
-                    const githubToken = core.getInput("github_token") || undefined;
-                    const allowedHostsRaw = core.getInput("allowed_image_hosts");
-                    const allowedHosts = allowedHostsRaw
-                        ? allowedHostsRaw
-                            .split(",")
-                            .map((h) => h.trim().toLowerCase())
-                            .filter(Boolean)
-                        : undefined;
-                    await (0, jira_1.postToJira)(keys, pr, jiraConfig, inputs.jiraCommentMode, prAction, inputs.jiraFailOnError, githubToken, allowedHosts);
+                    await (0, jira_1.postToJira)(keys, pr, jiraConfig, inputs.jiraCommentMode, prAction, inputs.jiraFailOnError, inputs.githubToken, inputs.allowedImageHosts);
                 }
             }
             else if (!isPr) {

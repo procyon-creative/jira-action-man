@@ -2,7 +2,7 @@
 
 A GitHub Action that extracts Jira issue keys from GitHub events and posts PR comments to Jira.
 
-- Node 20
+- Node 24
 - Extracts from branch names, PR titles, commit messages, and PR body
 - Posts PR descriptions as comments on linked Jira tickets (with update-on-rerun dedup)
 - Uploads PR body images to Jira as attachments (with SSRF protection and size limits)

@@ -11,6 +11,8 @@ export interface ActionInputs {
   postToJira: boolean;
   jiraCommentMode: JiraCommentMode;
   jiraFailOnError: boolean;
+  githubToken?: string;
+  allowedImageHosts?: string[];
 }
 
 export interface JiraConfig {

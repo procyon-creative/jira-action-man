@@ -6,7 +6,7 @@
 
 A GitHub Action that extracts Jira issue keys from GitHub events and posts PR comments to Jira.
 
-- Node 20
+- Node 24
 - Extracts from branch names, PR titles, commit messages, and PR body
 - Posts PR descriptions as comments on linked Jira tickets (with update-on-rerun dedup)
 - Uploads PR body images to Jira as attachments (with SSRF protection and size limits)
@@ -15,7 +15,7 @@ A GitHub Action that extracts Jira issue keys from GitHub events and posts PR co
 ## Quick Start
 
 ```yaml
-- uses: procyon-creative/jira-action-man@main
+- uses: procyon-creative/jira-action-man@v1
   id: jira
   with:
     projects: "PROJ,TEAM"
@@ -65,7 +65,7 @@ Keys are sorted alphabetically by project prefix, then numerically by issue numb
 ### Pull Request with Multiple Sources
 
 ```yaml
-- uses: procyon-creative/jira-action-man@main
+- uses: procyon-creative/jira-action-man@v1
   id: jira
   with:
     projects: "PROJ"
@@ -76,7 +76,7 @@ Keys are sorted alphabetically by project prefix, then numerically by issue numb
 ### Use Extracted Keys in Later Steps
 
 ```yaml
-- uses: procyon-creative/jira-action-man@main
+- uses: procyon-creative/jira-action-man@v1
   id: jira
   with:
     projects: "PROJ,TEAM"
@@ -98,7 +98,7 @@ When `post_to_jira` is enabled on `pull_request` events, the action posts the PR
 | `minimal` | Creates a single-line link to the PR. Low noise. |
 
 ```yaml
-- uses: procyon-creative/jira-action-man@main
+- uses: procyon-creative/jira-action-man@v1
   id: jira
   with:
     projects: "PROJ"

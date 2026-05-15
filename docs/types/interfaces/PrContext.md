@@ -6,7 +6,7 @@
 
 # Interface: PrContext
 
-Defined in: [types.ts:22](https://github.com/procyon-creative/jira-action-man/blob/44ae233d3f47fd96af9faa7bf23e4de4831576ab/src/types.ts#L22)
+Defined in: [types.ts:24](https://github.com/procyon-creative/jira-action-man/blob/95643d37286f81d86aaed55e1bfd9685e1cf4e37/src/types.ts#L24)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [types.ts:22](https://github.com/procyon-creative/jira-action-man/bl
 
 > **body**: `string`
 
-Defined in: [types.ts:25](https://github.com/procyon-creative/jira-action-man/blob/44ae233d3f47fd96af9faa7bf23e4de4831576ab/src/types.ts#L25)
+Defined in: [types.ts:27](https://github.com/procyon-creative/jira-action-man/blob/95643d37286f81d86aaed55e1bfd9685e1cf4e37/src/types.ts#L27)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [types.ts:25](https://github.com/procyon-creative/jira-action-man/bl
 
 > **number**: `number`
 
-Defined in: [types.ts:23](https://github.com/procyon-creative/jira-action-man/blob/44ae233d3f47fd96af9faa7bf23e4de4831576ab/src/types.ts#L23)
+Defined in: [types.ts:25](https://github.com/procyon-creative/jira-action-man/blob/95643d37286f81d86aaed55e1bfd9685e1cf4e37/src/types.ts#L25)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [types.ts:23](https://github.com/procyon-creative/jira-action-man/bl
 
 > **title**: `string`
 
-Defined in: [types.ts:24](https://github.com/procyon-creative/jira-action-man/blob/44ae233d3f47fd96af9faa7bf23e4de4831576ab/src/types.ts#L24)
+Defined in: [types.ts:26](https://github.com/procyon-creative/jira-action-man/blob/95643d37286f81d86aaed55e1bfd9685e1cf4e37/src/types.ts#L26)
 
 ***
 
@@ -38,4 +38,4 @@ Defined in: [types.ts:24](https://github.com/procyon-creative/jira-action-man/bl
 
 > **url**: `string`
 
-Defined in: [types.ts:26](https://github.com/procyon-creative/jira-action-man/blob/44ae233d3f47fd96af9faa7bf23e4de4831576ab/src/types.ts#L26)
+Defined in: [types.ts:28](https://github.com/procyon-creative/jira-action-man/blob/95643d37286f81d86aaed55e1bfd9685e1cf4e37/src/types.ts#L28)
