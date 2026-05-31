@@ -44,9 +44,13 @@ inputs:
     required: false
     default: "update"
   jira_fail_on_error:
-    description: "Fail the action if posting to Jira fails (default: warn only)"
+    description: "Fail the action if posting to Jira or transitioning an issue fails (default: warn only)"
     required: false
     default: "false"
+  transition_to:
+    description: "Status name to transition matched issues to (e.g. 'QA', 'Done'). Empty = no transition. Uses jira_base_url/email/token; obeys jira_fail_on_error (warn by default)."
+    required: false
+    default: ""
   github_token:
     description: "GitHub token used to authorize image downloads from GitHub-hosted URLs in PR bodies. Usually secrets.GITHUB_TOKEN."
     required: false

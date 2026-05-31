@@ -1,5 +1,6 @@
 import {
   postToJira,
+  transitionIssues,
   extractImageUrls,
   replaceImageUrls,
   downloadImage,
@@ -836,5 +837,158 @@ describe("postToJira with images", () => {
     // Only 1 download (deduped) + 1 upload + 1 comment = 3
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(core.info).toHaveBeenCalledWith("Found 2 image(s) in PR body");
+  });
+});
+
+describe("transitionIssues", () => {
+  const origFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = origFetch;
+    core.info.mockClear();
+    core.warning.mockClear();
+  });
+
+  it("transitions an issue when a matching transition exists", async () => {
+    const fetchMock = mockFetch([
+      {
+        status: 200,
+        body: {
+          transitions: [
+            { id: "21", name: "In Progress" },
+            { id: "31", name: "QA" },
+          ],
+        },
+      },
+      { status: 204 },
+    ]);
+    global.fetch = fetchMock;
+
+    await transitionIssues(["PROJ-1"], "QA", config, false);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    const [listUrl, listOpts] = getCall(fetchMock, 0);
+    expect(listUrl).toBe(
+      "https://test.atlassian.net/rest/api/2/issue/PROJ-1/transitions",
+    );
+    expect(listOpts.method).toBeUndefined();
+
+    const [postUrl, postOpts] = getCall(fetchMock, 1);
+    expect(postUrl).toBe(
+      "https://test.atlassian.net/rest/api/2/issue/PROJ-1/transitions",
+    );
+    expect(postOpts.method).toBe("POST");
+    expect(JSON.parse(postOpts.body as string)).toEqual({
+      transition: { id: "31" },
+    });
+
+    expect(core.info).toHaveBeenCalledWith("Transitioned PROJ-1 → QA");
+  });
+
+  it("matches the target status case-insensitively", async () => {
+    const fetchMock = mockFetch([
+      { status: 200, body: { transitions: [{ id: "31", name: "QA" }] } },
+      { status: 204 },
+    ]);
+    global.fetch = fetchMock;
+
+    await transitionIssues(["PROJ-1"], "qa", config, false);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(getCall(fetchMock, 1)[1].body as string)).toEqual({
+      transition: { id: "31" },
+    });
+  });
+
+  it("warns and skips the POST when no matching transition exists", async () => {
+    const fetchMock = mockFetch([
+      {
+        status: 200,
+        body: { transitions: [{ id: "21", name: "In Progress" }] },
+      },
+    ]);
+    global.fetch = fetchMock;
+
+    await transitionIssues(["PROJ-1"], "QA", config, false);
+
+    // Only the GET — no POST attempted.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(core.warning).toHaveBeenCalledWith(
+      expect.stringContaining('No "QA" transition available for PROJ-1'),
+    );
+    expect(core.warning).toHaveBeenCalledWith(
+      expect.stringContaining("In Progress"),
+    );
+  });
+
+  it("transitions multiple issues", async () => {
+    const fetchMock = mockFetch([
+      { status: 200, body: { transitions: [{ id: "41", name: "Done" }] } },
+      { status: 204 },
+      { status: 200, body: { transitions: [{ id: "41", name: "Done" }] } },
+      { status: 204 },
+    ]);
+    global.fetch = fetchMock;
+
+    await transitionIssues(["PROJ-1", "PROJ-2"], "Done", config, false);
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(core.info).toHaveBeenCalledWith("Transitioned PROJ-1 → Done");
+    expect(core.info).toHaveBeenCalledWith("Transitioned PROJ-2 → Done");
+  });
+
+  it("warns on API error by default (failOnError=false)", async () => {
+    global.fetch = mockFetch([{ status: 500 }]);
+
+    await transitionIssues(["PROJ-1"], "QA", config, false);
+
+    expect(core.warning).toHaveBeenCalledWith(
+      expect.stringContaining("Failed to transition PROJ-1"),
+    );
+  });
+
+  it("throws on API error when failOnError=true", async () => {
+    global.fetch = mockFetch([{ status: 500 }]);
+
+    await expect(
+      transitionIssues(["PROJ-1"], "QA", config, true),
+    ).rejects.toThrow("Failed to transition PROJ-1");
+  });
+
+  it("sends correct Basic auth header on the transitions request", async () => {
+    const fetchMock = mockFetch([
+      { status: 200, body: { transitions: [{ id: "31", name: "QA" }] } },
+      { status: 204 },
+    ]);
+    global.fetch = fetchMock;
+
+    await transitionIssues(["PROJ-1"], "QA", config, false);
+
+    const expectedAuth =
+      "Basic " + Buffer.from("user@example.com:test-token").toString("base64");
+    const [, getOpts] = getCall(fetchMock, 0);
+    expect((getOpts.headers as Record<string, string>).Authorization).toBe(
+      expectedAuth,
+    );
+  });
+
+  it("strips a trailing slash from the base URL", async () => {
+    const fetchMock = mockFetch([
+      { status: 200, body: { transitions: [{ id: "31", name: "QA" }] } },
+      { status: 204 },
+    ]);
+    global.fetch = fetchMock;
+
+    await transitionIssues(
+      ["PROJ-1"],
+      "QA",
+      { ...config, baseUrl: "https://test.atlassian.net/" },
+      false,
+    );
+
+    expect(getCall(fetchMock, 0)[0]).toBe(
+      "https://test.atlassian.net/rest/api/2/issue/PROJ-1/transitions",
+    );
   });
 });

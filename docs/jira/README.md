@@ -15,4 +15,5 @@
 - [isSafeUrl](functions/isSafeUrl.md)
 - [postToJira](functions/postToJira.md)
 - [replaceImageUrls](functions/replaceImageUrls.md)
+- [transitionIssues](functions/transitionIssues.md)
 - [uploadAttachment](functions/uploadAttachment.md)

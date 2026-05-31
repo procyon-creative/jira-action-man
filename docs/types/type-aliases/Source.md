@@ -8,4 +8,4 @@
 
 > **Source** = `"branch"` \| `"title"` \| `"commits"` \| `"body"`
 
-Defined in: [types.ts:1](https://github.com/procyon-creative/jira-action-man/blob/95643d37286f81d86aaed55e1bfd9685e1cf4e37/src/types.ts#L1)
+Defined in: [types.ts:1](https://github.com/procyon-creative/jira-action-man/blob/ef4120760a99c83744a455dcebfae67971159a1e/src/types.ts#L1)
