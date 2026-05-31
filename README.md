@@ -33,7 +33,8 @@ A GitHub Action that extracts Jira issue keys from GitHub events and posts PR co
 | `jira_email` | `""` | Jira account email for API authentication |
 | `jira_api_token` | `""` | Jira API token for authentication |
 | `jira_comment_mode` | `update` | Comment behavior: `update`, `new`, or `minimal` (see below) |
-| `jira_fail_on_error` | `false` | Fail the action if posting to Jira fails (default: warn only) |
+| `jira_fail_on_error` | `false` | Fail the action if posting to Jira or transitioning an issue fails (default: warn only) |
+| `transition_to` | `""` | Status name to transition matched issues to (e.g. `QA`, `Done`). Empty = no transition (see below) |
 | `github_token` | `""` | GitHub token for downloading GitHub-hosted images in PR bodies |
 | `allowed_image_hosts` | `""` | Comma-separated hostnames allowed for image downloads (empty = all non-private HTTPS hosts) |
 
@@ -108,6 +109,41 @@ When `post_to_jira` is enabled on `pull_request` events, the action posts the PR
 ```
 
 Images in the PR body are automatically downloaded and uploaded to Jira as attachments. The image references in the comment are updated to point to the uploaded files. Only HTTPS URLs are allowed, and private/loopback IPs are blocked. Use `allowed_image_hosts` to restrict downloads to specific domains.
+
+### Transition Issues
+
+Set `transition_to` to a status name and the action moves every matched issue to that status (using `jira_base_url`/`jira_email`/`jira_api_token`). The status is matched case-insensitively against the issue's available transitions. If no matching transition exists for an issue, the action logs a warning and continues — it does not fail (unless `jira_fail_on_error: true`). Transitions are event-agnostic: they run wherever issue keys are found, independent of `post_to_jira`.
+
+A common pattern is one job that moves issues to a review column when a PR opens, and another that moves them to Done when it merges:
+
+```yaml
+jobs:
+  to-qa:
+    if: github.event.action == 'opened' || github.event.action == 'reopened'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: procyon-creative/jira-action-man@v2
+        with:
+          projects: "PROJ"
+          from: "branch,title,commits,body"
+          transition_to: "QA"
+          jira_base_url: ${{ secrets.JIRA_BASE_URL }}
+          jira_email: ${{ secrets.JIRA_EMAIL }}
+          jira_api_token: ${{ secrets.JIRA_API_TOKEN }}
+
+  to-done:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: procyon-creative/jira-action-man@v2
+        with:
+          projects: "PROJ"
+          from: "branch,title,commits,body"
+          transition_to: "Done"
+          jira_base_url: ${{ secrets.JIRA_BASE_URL }}
+          jira_email: ${{ secrets.JIRA_EMAIL }}
+          jira_api_token: ${{ secrets.JIRA_API_TOKEN }}
+```
 
 ## Blocklist
 

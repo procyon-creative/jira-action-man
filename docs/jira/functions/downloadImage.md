@@ -8,7 +8,7 @@
 
 > **downloadImage**(`url`, `githubToken?`, `allowedHosts?`): `Promise`\<\{ `buffer`: `Buffer`; `contentType`: `string`; `filename`: `string`; \} \| `null`\>
 
-Defined in: [jira.ts:213](https://github.com/procyon-creative/jira-action-man/blob/95643d37286f81d86aaed55e1bfd9685e1cf4e37/src/jira.ts#L213)
+Defined in: [jira.ts:213](https://github.com/procyon-creative/jira-action-man/blob/ef4120760a99c83744a455dcebfae67971159a1e/src/jira.ts#L213)
 
 ## Parameters
 

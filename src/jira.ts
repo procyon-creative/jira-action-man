@@ -528,3 +528,72 @@ export async function postToJira(
     }
   }
 }
+
+interface JiraTransition {
+  id: string;
+  name: string;
+}
+
+export async function transitionIssues(
+  keys: string[],
+  targetStatus: string,
+  config: JiraConfig,
+  failOnError: boolean,
+): Promise<void> {
+  config = { ...config, baseUrl: config.baseUrl.replace(/\/+$/, "") };
+  const wanted = targetStatus.toLowerCase();
+
+  for (const key of keys) {
+    try {
+      const url = `${config.baseUrl}/rest/api/2/issue/${encodeURIComponent(key)}/transitions`;
+
+      const listRes = await fetch(url, {
+        headers: {
+          Authorization: authHeader(config),
+          Accept: "application/json",
+        },
+      });
+      if (!listRes.ok) {
+        throw new Error(
+          `Failed to fetch transitions for ${key}: ${listRes.status} ${listRes.statusText}`,
+        );
+      }
+
+      const { transitions } = (await listRes.json()) as {
+        transitions: JiraTransition[];
+      };
+      const match = transitions.find((t) => t.name.toLowerCase() === wanted);
+
+      if (!match) {
+        const available = transitions.map((t) => t.name).join(", ") || "none";
+        core.warning(
+          `No "${targetStatus}" transition available for ${key} (available: ${available})`,
+        );
+        continue;
+      }
+
+      const postRes = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: authHeader(config),
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ transition: { id: match.id } }),
+      });
+      if (!postRes.ok) {
+        throw new Error(
+          `Failed to transition ${key} to ${targetStatus}: ${postRes.status} ${postRes.statusText}`,
+        );
+      }
+
+      core.info(`Transitioned ${key} → ${targetStatus}`);
+    } catch (error) {
+      const msg = `Failed to transition ${key}: ${error instanceof Error ? error.message : String(error)}`;
+      if (failOnError) {
+        throw new Error(msg);
+      }
+      core.warning(msg);
+    }
+  }
+}

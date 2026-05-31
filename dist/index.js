@@ -30282,6 +30282,7 @@ function parseInputs() {
         ? jiraCommentModeRaw
         : "update");
     const jiraFailOnError = core.getInput("jira_fail_on_error") === "true";
+    const transitionTo = core.getInput("transition_to").trim() || undefined;
     const githubToken = core.getInput("github_token") || undefined;
     const allowedHostsRaw = core.getInput("allowed_image_hosts");
     const allowedImageHosts = allowedHostsRaw
@@ -30299,6 +30300,7 @@ function parseInputs() {
         postToJira,
         jiraCommentMode,
         jiraFailOnError,
+        transitionTo,
         githubToken,
         allowedImageHosts,
     };
@@ -30332,39 +30334,47 @@ async function run() {
                 core.info(msg);
             }
         }
-        if (inputs.postToJira && keys.length > 0) {
-            const { context } = github;
-            const isPr = context.eventName === "pull_request" ||
-                context.eventName === "pull_request_target";
-            if (isPr && context.payload.pull_request) {
-                const jiraConfig = {
-                    baseUrl: core.getInput("jira_base_url"),
-                    email: core.getInput("jira_email"),
-                    apiToken: core.getInput("jira_api_token"),
-                };
-                if (!jiraConfig.baseUrl || !jiraConfig.email || !jiraConfig.apiToken) {
-                    const msg = "post_to_jira is enabled but jira_base_url, jira_email, or jira_api_token is missing";
-                    if (inputs.jiraFailOnError) {
-                        core.setFailed(msg);
-                    }
-                    else {
-                        core.warning(msg);
-                    }
+        const needsJira = (inputs.postToJira || !!inputs.transitionTo) && keys.length > 0;
+        if (needsJira) {
+            const jiraConfig = {
+                baseUrl: core.getInput("jira_base_url"),
+                email: core.getInput("jira_email"),
+                apiToken: core.getInput("jira_api_token"),
+            };
+            if (!jiraConfig.baseUrl || !jiraConfig.email || !jiraConfig.apiToken) {
+                const msg = "post_to_jira/transition_to is enabled but jira_base_url, jira_email, or jira_api_token is missing";
+                if (inputs.jiraFailOnError) {
+                    core.setFailed(msg);
                 }
                 else {
-                    const prPayload = context.payload.pull_request;
-                    const pr = {
-                        number: prPayload.number,
-                        title: prPayload.title || "",
-                        body: prPayload.body || "",
-                        url: prPayload.html_url,
-                    };
-                    const prAction = context.payload.action || "opened";
-                    await (0, jira_1.postToJira)(keys, pr, jiraConfig, inputs.jiraCommentMode, prAction, inputs.jiraFailOnError, inputs.githubToken, inputs.allowedImageHosts);
+                    core.warning(msg);
                 }
             }
-            else if (!isPr) {
-                core.info("post_to_jira is enabled but event is not a pull_request — skipping");
+            else {
+                // Posting requires a pull_request event (it needs the PR body/number).
+                if (inputs.postToJira) {
+                    const { context } = github;
+                    const isPr = context.eventName === "pull_request" ||
+                        context.eventName === "pull_request_target";
+                    if (isPr && context.payload.pull_request) {
+                        const prPayload = context.payload.pull_request;
+                        const pr = {
+                            number: prPayload.number,
+                            title: prPayload.title || "",
+                            body: prPayload.body || "",
+                            url: prPayload.html_url,
+                        };
+                        const prAction = context.payload.action || "opened";
+                        await (0, jira_1.postToJira)(keys, pr, jiraConfig, inputs.jiraCommentMode, prAction, inputs.jiraFailOnError, inputs.githubToken, inputs.allowedImageHosts);
+                    }
+                    else if (!isPr) {
+                        core.info("post_to_jira is enabled but event is not a pull_request — skipping");
+                    }
+                }
+                // Transitions only need the issue keys + credentials — event-agnostic.
+                if (inputs.transitionTo) {
+                    await (0, jira_1.transitionIssues)(keys, inputs.transitionTo, jiraConfig, inputs.jiraFailOnError);
+                }
             }
         }
     }
@@ -30427,6 +30437,7 @@ exports.deduplicateFilenames = deduplicateFilenames;
 exports.downloadImage = downloadImage;
 exports.uploadAttachment = uploadAttachment;
 exports.postToJira = postToJira;
+exports.transitionIssues = transitionIssues;
 const core = __importStar(__nccwpck_require__(7484));
 const promises_1 = __nccwpck_require__(1553);
 const node_net_1 = __nccwpck_require__(7030);
@@ -30822,6 +30833,51 @@ async function postToJira(keys, pr, config, mode, prAction, failOnError, githubT
         }
         catch (error) {
             const msg = `Failed to post to ${key}: ${error instanceof Error ? error.message : String(error)}`;
+            if (failOnError) {
+                throw new Error(msg);
+            }
+            core.warning(msg);
+        }
+    }
+}
+async function transitionIssues(keys, targetStatus, config, failOnError) {
+    config = { ...config, baseUrl: config.baseUrl.replace(/\/+$/, "") };
+    const wanted = targetStatus.toLowerCase();
+    for (const key of keys) {
+        try {
+            const url = `${config.baseUrl}/rest/api/2/issue/${encodeURIComponent(key)}/transitions`;
+            const listRes = await fetch(url, {
+                headers: {
+                    Authorization: authHeader(config),
+                    Accept: "application/json",
+                },
+            });
+            if (!listRes.ok) {
+                throw new Error(`Failed to fetch transitions for ${key}: ${listRes.status} ${listRes.statusText}`);
+            }
+            const { transitions } = (await listRes.json());
+            const match = transitions.find((t) => t.name.toLowerCase() === wanted);
+            if (!match) {
+                const available = transitions.map((t) => t.name).join(", ") || "none";
+                core.warning(`No "${targetStatus}" transition available for ${key} (available: ${available})`);
+                continue;
+            }
+            const postRes = await fetch(url, {
+                method: "POST",
+                headers: {
+                    Authorization: authHeader(config),
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                },
+                body: JSON.stringify({ transition: { id: match.id } }),
+            });
+            if (!postRes.ok) {
+                throw new Error(`Failed to transition ${key} to ${targetStatus}: ${postRes.status} ${postRes.statusText}`);
+            }
+            core.info(`Transitioned ${key} → ${targetStatus}`);
+        }
+        catch (error) {
+            const msg = `Failed to transition ${key}: ${error instanceof Error ? error.message : String(error)}`;
             if (failOnError) {
                 throw new Error(msg);
             }

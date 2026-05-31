@@ -13,7 +13,7 @@ import {
   extractKeysFromTexts,
 } from "./extract";
 import { collectSourceTexts, sourceTextsToArray } from "./sources";
-import { postToJira } from "./jira";
+import { postToJira, transitionIssues } from "./jira";
 
 function parseInputs(): ActionInputs {
   const projectsRaw = core.getInput("projects");
@@ -57,6 +57,8 @@ function parseInputs(): ActionInputs {
   ) as JiraCommentMode;
   const jiraFailOnError = core.getInput("jira_fail_on_error") === "true";
 
+  const transitionTo = core.getInput("transition_to").trim() || undefined;
+
   const githubToken = core.getInput("github_token") || undefined;
 
   const allowedHostsRaw = core.getInput("allowed_image_hosts");
@@ -76,6 +78,7 @@ function parseInputs(): ActionInputs {
     postToJira,
     jiraCommentMode,
     jiraFailOnError,
+    transitionTo,
     githubToken,
     allowedImageHosts,
   };
@@ -120,52 +123,68 @@ async function run(): Promise<void> {
       }
     }
 
-    if (inputs.postToJira && keys.length > 0) {
-      const { context } = github;
-      const isPr =
-        context.eventName === "pull_request" ||
-        context.eventName === "pull_request_target";
+    const needsJira =
+      (inputs.postToJira || !!inputs.transitionTo) && keys.length > 0;
 
-      if (isPr && context.payload.pull_request) {
-        const jiraConfig: JiraConfig = {
-          baseUrl: core.getInput("jira_base_url"),
-          email: core.getInput("jira_email"),
-          apiToken: core.getInput("jira_api_token"),
-        };
+    if (needsJira) {
+      const jiraConfig: JiraConfig = {
+        baseUrl: core.getInput("jira_base_url"),
+        email: core.getInput("jira_email"),
+        apiToken: core.getInput("jira_api_token"),
+      };
 
-        if (!jiraConfig.baseUrl || !jiraConfig.email || !jiraConfig.apiToken) {
-          const msg =
-            "post_to_jira is enabled but jira_base_url, jira_email, or jira_api_token is missing";
-          if (inputs.jiraFailOnError) {
-            core.setFailed(msg);
-          } else {
-            core.warning(msg);
-          }
+      if (!jiraConfig.baseUrl || !jiraConfig.email || !jiraConfig.apiToken) {
+        const msg =
+          "post_to_jira/transition_to is enabled but jira_base_url, jira_email, or jira_api_token is missing";
+        if (inputs.jiraFailOnError) {
+          core.setFailed(msg);
         } else {
-          const prPayload = context.payload.pull_request;
-          const pr: PrContext = {
-            number: prPayload.number as number,
-            title: (prPayload.title as string) || "",
-            body: (prPayload.body as string) || "",
-            url: prPayload.html_url as string,
-          };
+          core.warning(msg);
+        }
+      } else {
+        // Posting requires a pull_request event (it needs the PR body/number).
+        if (inputs.postToJira) {
+          const { context } = github;
+          const isPr =
+            context.eventName === "pull_request" ||
+            context.eventName === "pull_request_target";
 
-          const prAction = (context.payload.action as string) || "opened";
-          await postToJira(
+          if (isPr && context.payload.pull_request) {
+            const prPayload = context.payload.pull_request;
+            const pr: PrContext = {
+              number: prPayload.number as number,
+              title: (prPayload.title as string) || "",
+              body: (prPayload.body as string) || "",
+              url: prPayload.html_url as string,
+            };
+
+            const prAction = (context.payload.action as string) || "opened";
+            await postToJira(
+              keys,
+              pr,
+              jiraConfig,
+              inputs.jiraCommentMode,
+              prAction,
+              inputs.jiraFailOnError,
+              inputs.githubToken,
+              inputs.allowedImageHosts,
+            );
+          } else if (!isPr) {
+            core.info(
+              "post_to_jira is enabled but event is not a pull_request — skipping",
+            );
+          }
+        }
+
+        // Transitions only need the issue keys + credentials — event-agnostic.
+        if (inputs.transitionTo) {
+          await transitionIssues(
             keys,
-            pr,
+            inputs.transitionTo,
             jiraConfig,
-            inputs.jiraCommentMode,
-            prAction,
             inputs.jiraFailOnError,
-            inputs.githubToken,
-            inputs.allowedImageHosts,
           );
         }
-      } else if (!isPr) {
-        core.info(
-          "post_to_jira is enabled but event is not a pull_request — skipping",
-        );
       }
     }
   } catch (error) {

@@ -8,7 +8,7 @@
 
 > **extractKeys**(`text`, `projects`, `blocklist`, `pattern`): `string`[]
 
-Defined in: [extract.ts:34](https://github.com/procyon-creative/jira-action-man/blob/95643d37286f81d86aaed55e1bfd9685e1cf4e37/src/extract.ts#L34)
+Defined in: [extract.ts:34](https://github.com/procyon-creative/jira-action-man/blob/ef4120760a99c83744a455dcebfae67971159a1e/src/extract.ts#L34)
 
 ## Parameters
 
