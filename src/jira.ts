@@ -597,3 +597,70 @@ export async function transitionIssues(
     }
   }
 }
+
+export interface CreateIssueOptions {
+  projectKey: string;
+  issueType: string;
+  summary: string;
+  description: string;
+  labels?: string[];
+}
+
+export async function createIssue(
+  config: JiraConfig,
+  opts: CreateIssueOptions,
+): Promise<string> {
+  config = { ...config, baseUrl: config.baseUrl.replace(/\/+$/, "") };
+  const url = `${config.baseUrl}/rest/api/2/issue`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: authHeader(config),
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      fields: {
+        project: { key: opts.projectKey },
+        issuetype: { name: opts.issueType },
+        summary: opts.summary,
+        description: opts.description,
+        ...(opts.labels && opts.labels.length > 0
+          ? { labels: opts.labels }
+          : {}),
+      },
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(
+      `Failed to create issue in ${opts.projectKey}: ${res.status} ${res.statusText}${detail ? ` — ${detail}` : ""}`,
+    );
+  }
+  const data = (await res.json()) as { key: string };
+  return data.key;
+}
+
+// Uses the enhanced JQL search endpoint (the legacy /rest/api/2/search is being
+// sunset by Atlassian). Returns the first matching issue key, or null.
+export async function searchIssue(
+  config: JiraConfig,
+  jql: string,
+): Promise<string | null> {
+  config = { ...config, baseUrl: config.baseUrl.replace(/\/+$/, "") };
+  const url = `${config.baseUrl}/rest/api/3/search/jql`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: authHeader(config),
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ jql, maxResults: 1, fields: ["key"] }),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to search issues: ${res.status} ${res.statusText}`);
+  }
+  const data = (await res.json()) as { issues?: { key: string }[] };
+  return data.issues?.[0]?.key ?? null;
+}

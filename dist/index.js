@@ -30202,6 +30202,180 @@ function mergeAndSort(keys) {
 
 /***/ }),
 
+/***/ 1633:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.resolveFailureContext = resolveFailureContext;
+exports.buildFailureIssue = buildFailureIssue;
+exports.createFailureIssue = createFailureIssue;
+const core = __importStar(__nccwpck_require__(7484));
+const github = __importStar(__nccwpck_require__(3228));
+const jira_1 = __nccwpck_require__(7647);
+/**
+ * Work out what failed, from the GitHub event context.
+ *
+ * - `workflow_run`: the natural "CI finished" signal. We only return a context
+ *   when the run actually FAILED (conclusion === "failure"); otherwise null so
+ *   the caller does nothing. PR info comes from `workflow_run.pull_requests`.
+ * - any other event (e.g. `pull_request`): we assume the workflow gated this
+ *   step on failure itself (`if: failure()`), so we build the context from the
+ *   PR payload (or the ref for pushes).
+ *
+ * Returns null when there's nothing to file a ticket for.
+ */
+function resolveFailureContext() {
+    const { context } = github;
+    const repo = context.payload.repository?.full_name ||
+        (context.payload.repository
+            ? `${context.payload.repository.owner?.login}/${context.payload.repository.name}`
+            : undefined);
+    if (context.eventName === "workflow_run") {
+        const wr = context.payload.workflow_run;
+        if (!wr)
+            return null;
+        // Only act on genuine failures.
+        if (wr.conclusion !== "failure")
+            return null;
+        const prNumber = wr.pull_requests?.[0]?.number;
+        const branch = wr.head_branch;
+        const url = prNumber && repo
+            ? `https://github.com/${repo}/pull/${prNumber}`
+            : undefined;
+        return {
+            title: prNumber ? `PR #${prNumber}` : `branch ${branch ?? "?"}`,
+            repo,
+            prNumber,
+            branch,
+            url,
+            runUrl: wr.html_url,
+        };
+    }
+    const pr = context.payload.pull_request;
+    if (pr) {
+        return {
+            title: pr.title || `PR #${pr.number}`,
+            repo,
+            prNumber: pr.number,
+            branch: pr.head?.ref,
+            url: pr.html_url,
+        };
+    }
+    // Fallback: a push/other event the workflow gated on failure.
+    const branch = context.ref?.replace(/^refs\/heads\//, "");
+    return { title: branch ? `branch ${branch}` : "build", repo, branch };
+}
+function slug(s) {
+    return s
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 40);
+}
+/**
+ * Build the summary, description and labels for a CI-failure ticket. Pure — no
+ * network. The second label is a deterministic dedup key so repeated failures of
+ * the same PR/branch reuse a single open ticket.
+ */
+function buildFailureIssue(ctx) {
+    const idLabel = ctx.prNumber
+        ? `PR #${ctx.prNumber}`
+        : ctx.branch
+            ? `branch ${ctx.branch}`
+            : "build";
+    const summary = `CI failed: ${idLabel}${ctx.prNumber && ctx.branch ? ` (${ctx.branch})` : ""}`.slice(0, 250);
+    const idSlug = ctx.prNumber
+        ? `pr-${ctx.prNumber}`
+        : slug(ctx.branch || "build");
+    const repoSlug = ctx.repo ? slug(ctx.repo) : "repo";
+    const dedupeLabel = `cifail-${repoSlug}-${idSlug}`.slice(0, 50);
+    const labels = ["ci-failure", dedupeLabel];
+    const lines = [
+        "A CI run failed. This ticket was opened automatically by jira-action-man.",
+        "",
+    ];
+    if (ctx.url)
+        lines.push(`* PR: ${ctx.url}`);
+    if (ctx.branch)
+        lines.push(`* Branch: {{${ctx.branch}}}`);
+    if (ctx.runUrl)
+        lines.push(`* Failed run: ${ctx.runUrl}`);
+    if (ctx.repo)
+        lines.push(`* Repo: ${ctx.repo}`);
+    return { summary, description: lines.join("\n"), labels, dedupeLabel };
+}
+/**
+ * Create a CI-failure ticket, unless an open one already exists for the same
+ * PR/branch (matched by the dedup label). Obeys failOnError (warn by default).
+ * Returns the issue key (existing or new), or null on a swallowed error.
+ */
+async function createFailureIssue(ctx, config, projectKey, issueType, failOnError) {
+    const { summary, description, labels, dedupeLabel } = buildFailureIssue(ctx);
+    try {
+        const jql = `project = "${projectKey}" AND statusCategory != Done AND labels = "${dedupeLabel}"`;
+        const existing = await (0, jira_1.searchIssue)(config, jql);
+        if (existing) {
+            core.info(`Open CI-failure ticket already exists for ${dedupeLabel}: ${existing} — not creating a duplicate`);
+            return existing;
+        }
+        const key = await (0, jira_1.createIssue)(config, {
+            projectKey,
+            issueType,
+            summary,
+            description,
+            labels,
+        });
+        core.info(`Created CI-failure ticket ${key} (${projectKey})`);
+        return key;
+    }
+    catch (error) {
+        const msg = `Failed to create CI-failure issue: ${error instanceof Error ? error.message : String(error)}`;
+        if (failOnError) {
+            throw new Error(msg);
+        }
+        core.warning(msg);
+        return null;
+    }
+}
+
+
+/***/ }),
+
 /***/ 9407:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -30246,6 +30420,7 @@ const github = __importStar(__nccwpck_require__(3228));
 const extract_1 = __nccwpck_require__(6542);
 const sources_1 = __nccwpck_require__(8578);
 const jira_1 = __nccwpck_require__(7647);
+const failure_1 = __nccwpck_require__(1633);
 function parseInputs() {
     const projectsRaw = core.getInput("projects");
     const projects = projectsRaw
@@ -30283,6 +30458,9 @@ function parseInputs() {
         : "update");
     const jiraFailOnError = core.getInput("jira_fail_on_error") === "true";
     const transitionTo = core.getInput("transition_to").trim() || undefined;
+    const createIssueOnFailure = core.getInput("create_issue_on_failure") === "true";
+    const issueType = core.getInput("issue_type").trim() || "Bug";
+    const issueProject = core.getInput("issue_project").trim().toUpperCase() || undefined;
     const githubToken = core.getInput("github_token") || undefined;
     const allowedHostsRaw = core.getInput("allowed_image_hosts");
     const allowedImageHosts = allowedHostsRaw
@@ -30301,6 +30479,9 @@ function parseInputs() {
         jiraCommentMode,
         jiraFailOnError,
         transitionTo,
+        createIssueOnFailure,
+        issueType,
+        issueProject,
         githubToken,
         allowedImageHosts,
     };
@@ -30377,6 +30558,42 @@ async function run() {
                 }
             }
         }
+        // Open a Jira ticket when a run has failed. Independent of issue keys —
+        // a failing dependabot PR carries no key, which is exactly the case this
+        // covers. Gated by create_issue_on_failure; the workflow decides when to
+        // run this (a workflow_run on the CI workflow, or an `if: failure()` job).
+        if (inputs.createIssueOnFailure) {
+            const jiraConfig = {
+                baseUrl: core.getInput("jira_base_url"),
+                email: core.getInput("jira_email"),
+                apiToken: core.getInput("jira_api_token"),
+            };
+            const projectKey = inputs.issueProject || inputs.projects[0];
+            if (!jiraConfig.baseUrl || !jiraConfig.email || !jiraConfig.apiToken) {
+                const msg = "create_issue_on_failure is enabled but jira_base_url, jira_email, or jira_api_token is missing";
+                if (inputs.jiraFailOnError)
+                    core.setFailed(msg);
+                else
+                    core.warning(msg);
+            }
+            else if (!projectKey) {
+                const msg = "create_issue_on_failure is enabled but no target project (set issue_project, or projects)";
+                if (inputs.jiraFailOnError)
+                    core.setFailed(msg);
+                else
+                    core.warning(msg);
+            }
+            else {
+                const failureCtx = (0, failure_1.resolveFailureContext)();
+                if (!failureCtx) {
+                    core.info("create_issue_on_failure: no failed run detected for this event — skipping");
+                }
+                else {
+                    const created = await (0, failure_1.createFailureIssue)(failureCtx, jiraConfig, projectKey, inputs.issueType, inputs.jiraFailOnError);
+                    core.setOutput("created_issue", created || "");
+                }
+            }
+        }
     }
     catch (error) {
         core.setFailed(error instanceof Error ? error.message : String(error));
@@ -30438,6 +30655,8 @@ exports.downloadImage = downloadImage;
 exports.uploadAttachment = uploadAttachment;
 exports.postToJira = postToJira;
 exports.transitionIssues = transitionIssues;
+exports.createIssue = createIssue;
+exports.searchIssue = searchIssue;
 const core = __importStar(__nccwpck_require__(7484));
 const promises_1 = __nccwpck_require__(1553);
 const node_net_1 = __nccwpck_require__(7030);
@@ -30884,6 +31103,55 @@ async function transitionIssues(keys, targetStatus, config, failOnError) {
             core.warning(msg);
         }
     }
+}
+async function createIssue(config, opts) {
+    config = { ...config, baseUrl: config.baseUrl.replace(/\/+$/, "") };
+    const url = `${config.baseUrl}/rest/api/2/issue`;
+    const res = await fetch(url, {
+        method: "POST",
+        headers: {
+            Authorization: authHeader(config),
+            "Content-Type": "application/json",
+            Accept: "application/json",
+        },
+        body: JSON.stringify({
+            fields: {
+                project: { key: opts.projectKey },
+                issuetype: { name: opts.issueType },
+                summary: opts.summary,
+                description: opts.description,
+                ...(opts.labels && opts.labels.length > 0
+                    ? { labels: opts.labels }
+                    : {}),
+            },
+        }),
+    });
+    if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        throw new Error(`Failed to create issue in ${opts.projectKey}: ${res.status} ${res.statusText}${detail ? ` — ${detail}` : ""}`);
+    }
+    const data = (await res.json());
+    return data.key;
+}
+// Uses the enhanced JQL search endpoint (the legacy /rest/api/2/search is being
+// sunset by Atlassian). Returns the first matching issue key, or null.
+async function searchIssue(config, jql) {
+    config = { ...config, baseUrl: config.baseUrl.replace(/\/+$/, "") };
+    const url = `${config.baseUrl}/rest/api/3/search/jql`;
+    const res = await fetch(url, {
+        method: "POST",
+        headers: {
+            Authorization: authHeader(config),
+            "Content-Type": "application/json",
+            Accept: "application/json",
+        },
+        body: JSON.stringify({ jql, maxResults: 1, fields: ["key"] }),
+    });
+    if (!res.ok) {
+        throw new Error(`Failed to search issues: ${res.status} ${res.statusText}`);
+    }
+    const data = (await res.json());
+    return data.issues?.[0]?.key ?? null;
 }
 
 

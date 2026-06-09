@@ -6,7 +6,7 @@
 
 # Interface: SourceTexts
 
-Defined in: [types.ts:32](https://github.com/procyon-creative/jira-action-man/blob/ef4120760a99c83744a455dcebfae67971159a1e/src/types.ts#L32)
+Defined in: [types.ts:48](https://github.com/procyon-creative/jira-action-man/blob/37df913da3194bdeead9a41e8c8da2c30899b860/src/types.ts#L48)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [types.ts:32](https://github.com/procyon-creative/jira-action-man/bl
 
 > `optional` **body**: `string`
 
-Defined in: [types.ts:36](https://github.com/procyon-creative/jira-action-man/blob/ef4120760a99c83744a455dcebfae67971159a1e/src/types.ts#L36)
+Defined in: [types.ts:52](https://github.com/procyon-creative/jira-action-man/blob/37df913da3194bdeead9a41e8c8da2c30899b860/src/types.ts#L52)
 
 ***
 
@@ -22,7 +22,7 @@ Defined in: [types.ts:36](https://github.com/procyon-creative/jira-action-man/bl
 
 > `optional` **branch**: `string`
 
-Defined in: [types.ts:33](https://github.com/procyon-creative/jira-action-man/blob/ef4120760a99c83744a455dcebfae67971159a1e/src/types.ts#L33)
+Defined in: [types.ts:49](https://github.com/procyon-creative/jira-action-man/blob/37df913da3194bdeead9a41e8c8da2c30899b860/src/types.ts#L49)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [types.ts:33](https://github.com/procyon-creative/jira-action-man/bl
 
 > `optional` **commits**: `string`[]
 
-Defined in: [types.ts:35](https://github.com/procyon-creative/jira-action-man/blob/ef4120760a99c83744a455dcebfae67971159a1e/src/types.ts#L35)
+Defined in: [types.ts:51](https://github.com/procyon-creative/jira-action-man/blob/37df913da3194bdeead9a41e8c8da2c30899b860/src/types.ts#L51)
 
 ***
 
@@ -38,4 +38,4 @@ Defined in: [types.ts:35](https://github.com/procyon-creative/jira-action-man/bl
 
 > `optional` **title**: `string`
 
-Defined in: [types.ts:34](https://github.com/procyon-creative/jira-action-man/blob/ef4120760a99c83744a455dcebfae67971159a1e/src/types.ts#L34)
+Defined in: [types.ts:50](https://github.com/procyon-creative/jira-action-man/blob/37df913da3194bdeead9a41e8c8da2c30899b860/src/types.ts#L50)

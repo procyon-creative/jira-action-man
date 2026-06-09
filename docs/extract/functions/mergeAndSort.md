@@ -8,7 +8,7 @@
 
 > **mergeAndSort**(`keys`): `string`[]
 
-Defined in: [extract.ts:63](https://github.com/procyon-creative/jira-action-man/blob/ef4120760a99c83744a455dcebfae67971159a1e/src/extract.ts#L63)
+Defined in: [extract.ts:63](https://github.com/procyon-creative/jira-action-man/blob/37df913da3194bdeead9a41e8c8da2c30899b860/src/extract.ts#L63)
 
 ## Parameters
 

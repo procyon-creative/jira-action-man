@@ -6,7 +6,7 @@
 
 # Interface: ActionInputs
 
-Defined in: [types.ts:5](https://github.com/procyon-creative/jira-action-man/blob/ef4120760a99c83744a455dcebfae67971159a1e/src/types.ts#L5)
+Defined in: [types.ts:5](https://github.com/procyon-creative/jira-action-man/blob/37df913da3194bdeead9a41e8c8da2c30899b860/src/types.ts#L5)
 
 ## Properties
 
@@ -14,7 +14,7 @@ Defined in: [types.ts:5](https://github.com/procyon-creative/jira-action-man/blo
 
 > `optional` **allowedImageHosts**: `string`[]
 
-Defined in: [types.ts:16](https://github.com/procyon-creative/jira-action-man/blob/ef4120760a99c83744a455dcebfae67971159a1e/src/types.ts#L16)
+Defined in: [types.ts:19](https://github.com/procyon-creative/jira-action-man/blob/37df913da3194bdeead9a41e8c8da2c30899b860/src/types.ts#L19)
 
 ***
 
@@ -22,7 +22,15 @@ Defined in: [types.ts:16](https://github.com/procyon-creative/jira-action-man/bl
 
 > **blocklist**: `string`[]
 
-Defined in: [types.ts:9](https://github.com/procyon-creative/jira-action-man/blob/ef4120760a99c83744a455dcebfae67971159a1e/src/types.ts#L9)
+Defined in: [types.ts:9](https://github.com/procyon-creative/jira-action-man/blob/37df913da3194bdeead9a41e8c8da2c30899b860/src/types.ts#L9)
+
+***
+
+### createIssueOnFailure
+
+> **createIssueOnFailure**: `boolean`
+
+Defined in: [types.ts:15](https://github.com/procyon-creative/jira-action-man/blob/37df913da3194bdeead9a41e8c8da2c30899b860/src/types.ts#L15)
 
 ***
 
@@ -30,7 +38,7 @@ Defined in: [types.ts:9](https://github.com/procyon-creative/jira-action-man/blo
 
 > **failOnMissing**: `boolean`
 
-Defined in: [types.ts:8](https://github.com/procyon-creative/jira-action-man/blob/ef4120760a99c83744a455dcebfae67971159a1e/src/types.ts#L8)
+Defined in: [types.ts:8](https://github.com/procyon-creative/jira-action-man/blob/37df913da3194bdeead9a41e8c8da2c30899b860/src/types.ts#L8)
 
 ***
 
@@ -38,7 +46,7 @@ Defined in: [types.ts:8](https://github.com/procyon-creative/jira-action-man/blo
 
 > **from**: [`Source`](../type-aliases/Source.md)[]
 
-Defined in: [types.ts:7](https://github.com/procyon-creative/jira-action-man/blob/ef4120760a99c83744a455dcebfae67971159a1e/src/types.ts#L7)
+Defined in: [types.ts:7](https://github.com/procyon-creative/jira-action-man/blob/37df913da3194bdeead9a41e8c8da2c30899b860/src/types.ts#L7)
 
 ***
 
@@ -46,7 +54,7 @@ Defined in: [types.ts:7](https://github.com/procyon-creative/jira-action-man/blo
 
 > `optional` **githubToken**: `string`
 
-Defined in: [types.ts:15](https://github.com/procyon-creative/jira-action-man/blob/ef4120760a99c83744a455dcebfae67971159a1e/src/types.ts#L15)
+Defined in: [types.ts:18](https://github.com/procyon-creative/jira-action-man/blob/37df913da3194bdeead9a41e8c8da2c30899b860/src/types.ts#L18)
 
 ***
 
@@ -54,7 +62,23 @@ Defined in: [types.ts:15](https://github.com/procyon-creative/jira-action-man/bl
 
 > **issuePattern**: `RegExp`
 
-Defined in: [types.ts:10](https://github.com/procyon-creative/jira-action-man/blob/ef4120760a99c83744a455dcebfae67971159a1e/src/types.ts#L10)
+Defined in: [types.ts:10](https://github.com/procyon-creative/jira-action-man/blob/37df913da3194bdeead9a41e8c8da2c30899b860/src/types.ts#L10)
+
+***
+
+### issueProject?
+
+> `optional` **issueProject**: `string`
+
+Defined in: [types.ts:17](https://github.com/procyon-creative/jira-action-man/blob/37df913da3194bdeead9a41e8c8da2c30899b860/src/types.ts#L17)
+
+***
+
+### issueType
+
+> **issueType**: `string`
+
+Defined in: [types.ts:16](https://github.com/procyon-creative/jira-action-man/blob/37df913da3194bdeead9a41e8c8da2c30899b860/src/types.ts#L16)
 
 ***
 
@@ -62,7 +86,7 @@ Defined in: [types.ts:10](https://github.com/procyon-creative/jira-action-man/bl
 
 > **jiraCommentMode**: [`JiraCommentMode`](../type-aliases/JiraCommentMode.md)
 
-Defined in: [types.ts:12](https://github.com/procyon-creative/jira-action-man/blob/ef4120760a99c83744a455dcebfae67971159a1e/src/types.ts#L12)
+Defined in: [types.ts:12](https://github.com/procyon-creative/jira-action-man/blob/37df913da3194bdeead9a41e8c8da2c30899b860/src/types.ts#L12)
 
 ***
 
@@ -70,7 +94,7 @@ Defined in: [types.ts:12](https://github.com/procyon-creative/jira-action-man/bl
 
 > **jiraFailOnError**: `boolean`
 
-Defined in: [types.ts:13](https://github.com/procyon-creative/jira-action-man/blob/ef4120760a99c83744a455dcebfae67971159a1e/src/types.ts#L13)
+Defined in: [types.ts:13](https://github.com/procyon-creative/jira-action-man/blob/37df913da3194bdeead9a41e8c8da2c30899b860/src/types.ts#L13)
 
 ***
 
@@ -78,7 +102,7 @@ Defined in: [types.ts:13](https://github.com/procyon-creative/jira-action-man/bl
 
 > **postToJira**: `boolean`
 
-Defined in: [types.ts:11](https://github.com/procyon-creative/jira-action-man/blob/ef4120760a99c83744a455dcebfae67971159a1e/src/types.ts#L11)
+Defined in: [types.ts:11](https://github.com/procyon-creative/jira-action-man/blob/37df913da3194bdeead9a41e8c8da2c30899b860/src/types.ts#L11)
 
 ***
 
@@ -86,7 +110,7 @@ Defined in: [types.ts:11](https://github.com/procyon-creative/jira-action-man/bl
 
 > **projects**: `string`[]
 
-Defined in: [types.ts:6](https://github.com/procyon-creative/jira-action-man/blob/ef4120760a99c83744a455dcebfae67971159a1e/src/types.ts#L6)
+Defined in: [types.ts:6](https://github.com/procyon-creative/jira-action-man/blob/37df913da3194bdeead9a41e8c8da2c30899b860/src/types.ts#L6)
 
 ***
 
@@ -94,4 +118,4 @@ Defined in: [types.ts:6](https://github.com/procyon-creative/jira-action-man/blo
 
 > `optional` **transitionTo**: `string`
 
-Defined in: [types.ts:14](https://github.com/procyon-creative/jira-action-man/blob/ef4120760a99c83744a455dcebfae67971159a1e/src/types.ts#L14)
+Defined in: [types.ts:14](https://github.com/procyon-creative/jira-action-man/blob/37df913da3194bdeead9a41e8c8da2c30899b860/src/types.ts#L14)

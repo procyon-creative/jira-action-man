@@ -8,4 +8,4 @@
 
 > **JiraCommentMode** = `"update"` \| `"new"` \| `"minimal"`
 
-Defined in: [types.ts:3](https://github.com/procyon-creative/jira-action-man/blob/ef4120760a99c83744a455dcebfae67971159a1e/src/types.ts#L3)
+Defined in: [types.ts:3](https://github.com/procyon-creative/jira-action-man/blob/37df913da3194bdeead9a41e8c8da2c30899b860/src/types.ts#L3)

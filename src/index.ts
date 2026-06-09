@@ -14,6 +14,7 @@ import {
 } from "./extract";
 import { collectSourceTexts, sourceTextsToArray } from "./sources";
 import { postToJira, transitionIssues } from "./jira";
+import { createFailureIssue, resolveFailureContext } from "./failure";
 
 function parseInputs(): ActionInputs {
   const projectsRaw = core.getInput("projects");
@@ -59,6 +60,12 @@ function parseInputs(): ActionInputs {
 
   const transitionTo = core.getInput("transition_to").trim() || undefined;
 
+  const createIssueOnFailure =
+    core.getInput("create_issue_on_failure") === "true";
+  const issueType = core.getInput("issue_type").trim() || "Bug";
+  const issueProject =
+    core.getInput("issue_project").trim().toUpperCase() || undefined;
+
   const githubToken = core.getInput("github_token") || undefined;
 
   const allowedHostsRaw = core.getInput("allowed_image_hosts");
@@ -79,6 +86,9 @@ function parseInputs(): ActionInputs {
     jiraCommentMode,
     jiraFailOnError,
     transitionTo,
+    createIssueOnFailure,
+    issueType,
+    issueProject,
     githubToken,
     allowedImageHosts,
   };
@@ -184,6 +194,47 @@ async function run(): Promise<void> {
             jiraConfig,
             inputs.jiraFailOnError,
           );
+        }
+      }
+    }
+
+    // Open a Jira ticket when a run has failed. Independent of issue keys —
+    // a failing dependabot PR carries no key, which is exactly the case this
+    // covers. Gated by create_issue_on_failure; the workflow decides when to
+    // run this (a workflow_run on the CI workflow, or an `if: failure()` job).
+    if (inputs.createIssueOnFailure) {
+      const jiraConfig: JiraConfig = {
+        baseUrl: core.getInput("jira_base_url"),
+        email: core.getInput("jira_email"),
+        apiToken: core.getInput("jira_api_token"),
+      };
+      const projectKey = inputs.issueProject || inputs.projects[0];
+
+      if (!jiraConfig.baseUrl || !jiraConfig.email || !jiraConfig.apiToken) {
+        const msg =
+          "create_issue_on_failure is enabled but jira_base_url, jira_email, or jira_api_token is missing";
+        if (inputs.jiraFailOnError) core.setFailed(msg);
+        else core.warning(msg);
+      } else if (!projectKey) {
+        const msg =
+          "create_issue_on_failure is enabled but no target project (set issue_project, or projects)";
+        if (inputs.jiraFailOnError) core.setFailed(msg);
+        else core.warning(msg);
+      } else {
+        const failureCtx = resolveFailureContext();
+        if (!failureCtx) {
+          core.info(
+            "create_issue_on_failure: no failed run detected for this event — skipping",
+          );
+        } else {
+          const created = await createFailureIssue(
+            failureCtx,
+            jiraConfig,
+            projectKey,
+            inputs.issueType,
+            inputs.jiraFailOnError,
+          );
+          core.setOutput("created_issue", created || "");
         }
       }
     }
