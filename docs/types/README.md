@@ -9,6 +9,7 @@
 ## Interfaces
 
 - [ActionInputs](interfaces/ActionInputs.md)
+- [FailureContext](interfaces/FailureContext.md)
 - [JiraConfig](interfaces/JiraConfig.md)
 - [PrContext](interfaces/PrContext.md)
 - [SourceTexts](interfaces/SourceTexts.md)

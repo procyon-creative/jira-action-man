@@ -39,6 +39,9 @@ A GitHub Action that extracts Jira issue keys from GitHub events and posts PR co
 | `jira_comment_mode` | `update` | Comment behavior: `update`, `new`, or `minimal` (see below) |
 | `jira_fail_on_error` | `false` | Fail the action if posting to Jira or transitioning an issue fails (default: warn only) |
 | `transition_to` | `""` | Status name to transition matched issues to (e.g. `QA`, `Done`). Empty = no transition (see below) |
+| `create_issue_on_failure` | `false` | Open a Jira ticket when a run fails (independent of issue keys — covers failing dependabot PRs). See below |
+| `issue_type` | `Bug` | Issue type for the ticket created by `create_issue_on_failure` (must exist in the project) |
+| `issue_project` | `""` | Project key for the failure ticket. Defaults to the first entry of `projects` |
 | `github_token` | `""` | GitHub token for downloading GitHub-hosted images in PR bodies |
 | `allowed_image_hosts` | `""` | Comma-separated hostnames allowed for image downloads (empty = all non-private HTTPS hosts) |
 
@@ -49,6 +52,7 @@ A GitHub Action that extracts Jira issue keys from GitHub events and posts PR co
 | `keys` | JSON array of unique sorted keys, e.g. `["PROJ-123","PROJ-456"]` |
 | `key` | First key found (convenience) |
 | `found` | `"true"` or `"false"` |
+| `created_issue` | Key of the ticket created (or reused) by `create_issue_on_failure`, or empty |
 
 Keys are sorted alphabetically by project prefix, then numerically by issue number (`PROJ-2` before `PROJ-10`).
 
@@ -117,6 +121,37 @@ Images in the PR body are automatically downloaded and uploaded to Jira as attac
 ### Transition Issues
 
 Set `transition_to` to a status name and the action moves every matched issue to that status (using `jira_base_url`/`jira_email`/`jira_api_token`). The status is matched case-insensitively against the issue's available transitions. If no matching transition exists for an issue, the action logs a warning and continues — it does not fail (unless `jira_fail_on_error: true`). Transitions are event-agnostic: they run wherever issue keys are found, independent of `post_to_jira`.
+
+### Open a Ticket When CI Fails
+
+`create_issue_on_failure` files a Jira ticket when a run fails — even when the PR carries **no** issue key (e.g. a failing **dependabot** PR). Tickets are **deduplicated by label**, so repeated failures of the same PR/branch reuse one open ticket instead of spamming a new one each run.
+
+Trigger it from a `workflow_run` on your CI workflow — the action reads the run's conclusion and only files a ticket on `failure`:
+
+```yaml
+name: CI Failures → Jira
+on:
+  workflow_run:
+    workflows: ["CI"] # the name: of your CI workflow
+    types: [completed]
+
+jobs:
+  file-ticket:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: procyon-creative/jira-action-man@v2
+        with:
+          create_issue_on_failure: true
+          issue_project: "PROJ" # or rely on `projects`
+          issue_type: "Bug"
+          jira_base_url: ${{ secrets.JIRA_BASE_URL }}
+          jira_email: ${{ secrets.JIRA_EMAIL }}
+          jira_api_token: ${{ secrets.JIRA_API_TOKEN }}
+```
+
+Alternatively, call it from an `if: failure()` job in the same workflow as your build — it then files a ticket for the current PR/branch.
+
+The created ticket carries two labels: `ci-failure` and a per-target dedup label (e.g. `cifail-org-repo-pr-6`). Move that ticket to a Done status (or close it) and the next failure opens a fresh one. The created key is exposed as the `created_issue` output.
 
 A common pattern is one job that moves issues to a review column when a PR opens, and another that moves them to Done when it merges:
 
